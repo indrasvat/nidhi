@@ -295,6 +295,7 @@ These are implemented as plugins conforming to the `Plugin` interface but ship a
 | FR-10.4 | Per-file status indicators: ✓ clean (green), ⚡ conflict (yellow/amber), ? unknown (gray). |
 | FR-10.5 | Inline preview of conflict zones for each conflicted file. |
 | FR-10.6 | Options from conflict screen: "Apply anyway" / "Pop anyway" / "Branch first" / "Cancel". |
+| FR-10.6a | **Untracked file collisions:** If the stash contains untracked files that already exist in the working tree, `git stash apply` will fail even if `merge-tree` reports no conflicts. Check for this by comparing stash's untracked file list against the working tree and show a warning in the conflict preview (separate from merge conflicts). |
 | FR-10.7 | Requires Git ≥ 2.38. If unavailable, skip conflict preview and apply directly (with a one-time info toast). |
 
 **Git plumbing:** [git-merge-tree(1) — `--write-tree` mode](https://git-scm.com/docs/git-merge-tree)
@@ -333,7 +334,7 @@ These are implemented as plugins conforming to the `Plugin` interface but ship a
 | FR-13.2 | Previous message shown dimmed above/below for reference. |
 | FR-13.3 | `Enter` saves, `Esc` cancels. |
 | FR-13.4 | Implementation: `git stash drop stash@{n}` then `git stash store -m "<new message>" <sha>`. SHA is preserved. |
-| FR-13.5 | If the stash is not at position 0, the operation preserves ordering by dropping and re-storing all stashes above it. |
+| FR-13.5 | If the stash is not at position 0, the operation preserves ordering by dropping and re-storing all stashes above it. Same transactional safety as FR-16.4 applies. |
 
 #### FR-14: Undo & Recovery (Plugin: `undo`)
 
@@ -359,6 +360,7 @@ These are implemented as plugins conforming to the `Plugin` interface but ship a
 | FR-16.1 | `Shift+J` / `Shift+K`: move the selected stash down/up in the list. |
 | FR-16.2 | Implementation: drop + re-store sequence to change reflog ordering. |
 | FR-16.3 | Visual feedback: the moved stash animates (highlight flash) to its new position. |
+| FR-16.4 | **Transactional safety:** Reorder requires dropping and re-storing multiple stashes. Before the sequence, record all SHAs and messages in an in-memory journal. If any step fails, restore from journal. On crash recovery, check for incomplete reorders using the journal (persisted to `~/.local/state/nidhi/reorder-journal.json`) and offer to complete or roll back. |
 
 #### FR-17: Filter by Branch (Plugin: `filter`)
 
@@ -508,7 +510,11 @@ type ScreenProvider interface {
     Screens() []ScreenDef
     // Update handles messages when the screen is active.
     Update(msg tea.Msg, state AppState) (AppState, tea.Cmd)
-    // View renders the screen content (between status bar and footer).
+    // View renders the screen content area only (between status bar and footer).
+    // The core Layout Engine wraps this with the status bar and footer — plugins
+    // must NOT render those themselves. width/height reflect the available content
+    // area after subtracting status bar and footer. Overlays (modals, toasts) are
+    // composited by the core via LipGloss Canvas z-indexing, not by plugins.
     View(state AppState, width, height int) string
 }
 
