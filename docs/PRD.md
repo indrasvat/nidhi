@@ -36,6 +36,7 @@
 18. [Milestones & Phasing](#18-milestones--phasing)
 19. [Glossary](#19-glossary)
 20. [External References](#20-external-references)
+21. [Bootstrap & Project Setup](#21-bootstrap--project-setup)
 
 ---
 
@@ -123,10 +124,12 @@ lazygit and tig both have stash panels, but they treat stash as a secondary conc
 | Component | Version | Import Path | Notes |
 |---|---|---|---|
 | **Go** | ≥1.26 | — | Latest stable (released 2026-02-10). Self-referential generics, Green Tea GC, `new()` with expressions. ([Go 1.26 release notes](https://go.dev/doc/go1.26)) |
-| **BubbleTea** | v2 (RC2+) | `charm.land/bubbletea/v2` | Cursed Renderer, `tea.View` struct, `KeyPressMsg`/`KeyReleaseMsg`, keyboard enhancements, Mode 2026 sync output, built-in color downsampling. ([Discussion #1374](https://github.com/charmbracelet/bubbletea/discussions/1374)) |
-| **LipGloss** | v2 | `charm.land/lipgloss/v2` | Canvas/Layer compositing for modals, immutable styles, pure I/O (no fighting with BubbleTea), tree/table packages. ([Releases](https://github.com/charmbracelet/lipgloss/releases)) |
-| **Bubbles** | v2 | `charm.land/bubbles/v2` | `viewport.Model`, `textinput.Model`, `key.Binding`, `help.Model`. ([Releases](https://github.com/charmbracelet/bubbles/releases)) |
+| **BubbleTea** | v2 (RC2+) | `charm.land/bubbletea/v2` | Cursed Renderer, `tea.View` struct (Content is `tea.Layer` interface, not a string), `KeyPressMsg`/`KeyReleaseMsg`, keyboard enhancements, Mode 2026 sync output, built-in color downsampling via `colorprofile`. ([Discussion #1374](https://github.com/charmbracelet/bubbletea/discussions/1374)) |
+| **LipGloss** | v2 (beta.3+) | `github.com/charmbracelet/lipgloss/v2` | Canvas/Layer compositing for modals, immutable styles, pure I/O (no fighting with BubbleTea), tree/table sub-packages. Import path transitioning from `github.com/charmbracelet/lipgloss/v2` to `charm.land/lipgloss/v2`; use whatever `go get` resolves via Bubbles v2 transitive dependency. ([Releases](https://github.com/charmbracelet/lipgloss/releases)) |
+| **Bubbles** | v2 (RC1+) | `charm.land/bubbles/v2` | `viewport.Model`, `textinput.Model`, `key.Binding`, `help.Model`. ([Releases](https://github.com/charmbracelet/bubbles/releases)) |
 | **Git** | ≥2.38 (core), ≥2.51 (export/import) | — | `merge-tree --write-tree` (2.38+), `stash export/import` (2.51+). Latest: 2.53.0 (2026-02-02). ([git-scm.com](https://git-scm.com/)) |
+
+> **Note:** All Charm v2 libraries are pre-release (RC/beta) as of 2026-02-14. Pin exact versions in `go.mod` and update manually as stable releases land. The Charm team has announced stable v2 releases are imminent.
 
 ### 4.2 Supporting Libraries
 
@@ -135,17 +138,18 @@ lazygit and tig both have stash panels, but they treat stash as a secondary conc
 | `github.com/sahilm/fuzzy` | Fuzzy matching for search |
 | `github.com/pelletier/go-toml/v2` | Config file parsing |
 | `github.com/adrg/xdg` | XDG base directory resolution |
-| `github.com/muesli/termenv` | Terminal capability detection (used by LipGloss internally) |
+| `github.com/charmbracelet/colorprofile` | Terminal capability detection and color downsampling (replaces `muesli/termenv` in v2 ecosystem; used by BubbleTea v2 and LipGloss v2 internally) |
 
 ### 4.3 Build & Dev
 
 | Tool | Purpose |
 |---|---|
 | Go 1.26 toolchain | Build, test, vet, lint |
-| `golangci-lint` | Linting |
+| `golangci-lint` (v2+) | Linting (static analysis, style, bugs) |
 | `goreleaser` | Cross-platform release builds |
-| `task` (Taskfile) | Build automation |
-| `gotestsum` | Test runner with pretty output |
+| `make` (Makefile) | Build automation — all targets: build, test, lint, install, hooks |
+| `gotestsum` | Test runner with JUnit XML output and pretty formatting |
+| `lefthook` | Git hooks manager — pre-commit (lint+test), pre-push (full test) |
 
 ### 4.4 Go Language Features Used
 
@@ -667,8 +671,16 @@ nidhi/
 │       └── gitconfig.go         # Read from git config
 ├── go.mod
 ├── go.sum
-├── Taskfile.yml
+├── Makefile                   # Build, test, lint, install, hooks
+├── lefthook.yml               # Pre-commit/pre-push git hooks
 ├── .goreleaser.yml
+├── .golangci.yml              # Linter configuration
+├── CLAUDE.md                  # AI agent instructions (source of truth)
+├── AGENTS.md                  # Points to CLAUDE.md
+├── docs/
+│   ├── PRD.md                 # This document
+│   ├── PROGRESS.md            # Implementation progress tracker
+│   └── nidhi-full-mockup.html # Visual design spec
 ├── README.md
 └── LICENSE
 ```
@@ -1236,8 +1248,8 @@ Every default is chosen to match what a developer would configure if they had in
 
 | Feature | nidhi Usage | Notes |
 |---|---|---|
-| **`tea.View` struct** | Return `tea.View{AltScreen: true, Content: rendered}` from `View()`. | Replaces v1's `tea.EnterAltScreen` command. Declarative alt-screen management. |
-| **`tea.KeyPressMsg`** | Primary keyboard input handler. `msg.Code` for special keys, `msg.Text` for printable. | Replaces v1's `tea.KeyMsg` with `Type`/`Runes`. |
+| **`tea.View` struct** | Return `tea.View{AltScreen: true, Content: tea.NewLayer(rendered)}` from `View()`. `Content` is a `tea.Layer` interface — wrap strings/Stringers via `tea.NewLayer()`. Also supports `Cursor`, `BackgroundColor`, `ForegroundColor`, `WindowTitle`, `MouseMode`, `KeyboardEnhancements`. | Replaces v1's `tea.EnterAltScreen` command. Declarative view management with 11 configurable fields. |
+| **`tea.KeyPressMsg`** | Primary keyboard input handler. Fields: `Text` (string), `Code` (int32), `Mod` (KeyMod), `ShiftedCode`, `BaseCode`, `IsRepeat`. Use `msg.Code` for special keys, `msg.Text` for printable chars. | Replaces v1's `tea.KeyMsg` with `Type`/`Runes`. |
 | **`tea.KeyReleaseMsg`** | Not used in nidhi (no key-release interactions). | Available for future use. |
 | **Keyboard enhancements** | Detect via `tea.KeyboardEnhancementsMsg`. Enable `shift+enter`, `ctrl+m` disambiguation in supporting terminals (Ghostty, Kitty, iTerm2, WezTerm). | Fallback: standard bindings only. |
 | **`tea.WindowSizeMsg`** | Responsive layout recalculation. Stored in model. | Split between panels based on ratios. |
@@ -1270,18 +1282,22 @@ func (m model) renderWithOverlay(content, overlay string) string {
         Foreground(lipgloss.Color(m.theme.FgDimmed)).
         Render(content)
 
-    // Create layers
+    // Create layers — lipgloss.NewLayer accepts any (string, Stringer, or Drawable)
     bgLayer := lipgloss.NewLayer(dimmed)
     fgLayer := lipgloss.NewLayer(overlay).
         X(m.width/2 - overlayWidth/2).  // Centered
         Y(m.height/2 - overlayHeight/2).
         Z(1) // Above background
 
-    // Compose
+    // Compose and render to string
     canvas := lipgloss.NewCanvas(bgLayer, fgLayer)
     return canvas.Render()
 }
 ```
+
+> **Note on `tea.View.Content`:** The `Content` field in `tea.View` is a `tea.Layer` interface
+> (with a `Draw(w, h int) string` method), not a plain string. Use `tea.NewLayer(renderedString)`
+> to wrap the canvas output before assigning to `tea.View.Content`.
 
 ### 13.4 Bubbles v2 Components Used
 
@@ -1289,8 +1305,8 @@ func (m model) renderWithOverlay(content, overlay string) string {
 |---|---|
 | `viewport.Model` | Diff preview (PREVIEW mode), diff panel (DETAIL mode), conflict zone preview. Handles `^d/^u` page scroll, scroll position tracking. |
 | `textinput.Model` | Search query input, rename input, new stash message, branch name, export ref path. |
-| `key.Binding` / `key.Map` | All keybindings. Organized per-mode. `help.Model` auto-generates help text from bindings. |
-| `help.Model` | Footer keybind rendering. Auto-formats from `key.Map`. |
+| `key.Binding` | All keybindings. Organized per-mode. Each binding has `Keys`, `Help` (key/desc pair), and `Enabled`. |
+| `help.Model` | Footer keybind rendering. Auto-generates from types implementing `help.KeyMap` interface (a struct with `ShortHelp()`/`FullHelp()` methods returning `[]key.Binding`/`[][]key.Binding`). Define per-mode keymap structs. |
 
 ### 13.5 Custom Components (Not in Bubbles)
 
@@ -1383,9 +1399,9 @@ All git commands execute with `context.WithTimeout(ctx, 10*time.Second)`. Export
 |---|---|---|
 | **Unit** | Individual functions: stash parsing, message generation, theme color computation, config merging. | `go test`, table-driven tests. |
 | **Integration** | Git operations against a real repo: apply, pop, drop, export, import, merge-tree. | Temp git repos created in `TestMain`. |
-| **UI** | BubbleTea model tests: send messages, assert state transitions and view output. | `teatest` (BubbleTea's testing package). |
+| **UI** | BubbleTea model tests: send messages, assert state transitions and view output. | `teatest` from `github.com/charmbracelet/x/exp/teatest` (experimental; NOT in bubbles or bubbletea packages). |
 | **Snapshot** | View rendering: capture rendered strings and compare against golden files. | Custom snapshot testing with golden file updates via `--update` flag. |
-| **E2E** | Full app interaction: start nidhi, send keystrokes, verify output. | `teatest` with `Send()` and `WaitFor()`. |
+| **E2E** | Full app interaction: start nidhi, send keystrokes, verify output. | `teatest` with `Send()` and `WaitFor()` from `github.com/charmbracelet/x/exp/teatest`. |
 
 ### 16.2 Git Test Fixtures
 
@@ -1407,10 +1423,11 @@ func setupTestRepo(t *testing.T) string {
 ### 16.3 CI/CD
 
 - Run on every push via GitHub Actions.
-- Matrix: Go 1.25.x + Go 1.26.x × Linux + macOS.
-- Lint: `golangci-lint run`.
-- Test: `gotestsum -- -race -coverprofile=coverage.out ./...`.
-- Coverage: Enforce > 70% on core and git packages.
+- Matrix: Go 1.26.x × Linux + macOS.
+- Lint: `make lint` (runs `golangci-lint run`).
+- Test: `make test` (runs `gotestsum -- -race -coverprofile=coverage.out ./...`).
+- Coverage: Enforce > 70% on `internal/core` and `internal/git` packages.
+- Pre-commit hooks: `lefthook` runs lint + unit tests locally before every commit.
 
 ---
 
@@ -1420,12 +1437,18 @@ func setupTestRepo(t *testing.T) string {
 
 ```bash
 # Development
-task build           # go build -o bin/nidhi ./cmd/nidhi
-task test            # gotestsum
-task lint            # golangci-lint run
+make build           # go build -o bin/nidhi ./cmd/nidhi
+make test            # gotestsum -- -race ./...
+make lint            # golangci-lint run
+make check           # lint + test (what pre-commit runs)
+
+# Installation
+make install         # install to ~/.local/bin/nidhi
+make install-hooks   # install lefthook git hooks
+make install-tools   # install gotestsum, golangci-lint, goreleaser, lefthook
 
 # Release
-task release         # goreleaser release
+make release         # goreleaser release --clean
 ```
 
 ### 17.2 Distribution Channels
@@ -1563,6 +1586,220 @@ Semantic versioning. `v0.x.y` until the API (config format, plugin interface) st
 | [fzf](https://github.com/junegunn/fzf) | Live fuzzy filtering UX, minimal chrome |
 | [delta](https://github.com/dandavison/delta) | Beautiful diff rendering, syntax highlighting |
 | [tig](https://github.com/jonas/tig) | ncurses Git browser, split views |
+
+---
+
+## 21. Bootstrap & Project Setup
+
+This section defines the project scaffolding created before any application code is written.
+
+### 21.1 Makefile
+
+The project uses a single `Makefile` as the build automation entry point. All CI, hooks, and developer workflows invoke Make targets.
+
+**Required targets:**
+
+| Target | Purpose | Command |
+|---|---|---|
+| `build` | Compile binary to `bin/nidhi` | `go build -o bin/nidhi ./cmd/nidhi` |
+| `test` | Run all tests with race detection | `gotestsum -- -race -coverprofile=coverage.out ./...` |
+| `lint` | Run linter | `golangci-lint run` |
+| `check` | Run lint + test (pre-commit target) | `$(MAKE) lint && $(MAKE) test` |
+| `install` | Install binary to `~/.local/bin` | `go build -o ~/.local/bin/nidhi ./cmd/nidhi` |
+| `install-tools` | Install dev dependencies | `go install gotest.tools/gotestsum@latest` etc. |
+| `install-hooks` | Install lefthook git hooks | `lefthook install` |
+| `clean` | Remove build artifacts | `rm -rf bin/ coverage.out` |
+| `release` | Build release with goreleaser | `goreleaser release --clean` |
+| `coverage` | Open coverage report in browser | `go tool cover -html=coverage.out` |
+
+### 21.2 CLAUDE.md — AI Agent Instructions
+
+`CLAUDE.md` at project root is the **source of truth** for all AI coding agents (Claude Code, Codex, Cursor, etc.). `AGENTS.md` simply contains a pointer to `CLAUDE.md`.
+
+**CLAUDE.md must contain:**
+
+1. **Project overview** — one-paragraph description, tech stack, Go module path.
+2. **Build & test commands** — exact `make` targets for building, testing, linting.
+3. **Architecture summary** — core engine → plugin host → UI layer. Key packages.
+4. **Code conventions** — Go style (gofmt, golangci-lint config), naming conventions, error handling patterns, no `panic` outside main.
+5. **Git workflow** — branch naming, conventional commits, PR process.
+6. **Key decisions log** — major architectural decisions and their rationale.
+7. **Learnings** sub-section (see §21.5).
+
+### 21.3 Lefthook Git Hooks
+
+`lefthook.yml` at project root configures pre-commit and pre-push hooks.
+
+```yaml
+pre-commit:
+  parallel: true
+  commands:
+    lint:
+      run: make lint
+    test-unit:
+      run: go test -short -count=1 ./...
+
+pre-push:
+  commands:
+    test-full:
+      run: make test
+```
+
+**Install:** `make install-hooks` (runs `lefthook install`).
+
+### 21.4 docs/PROGRESS.md — Implementation Tracker
+
+`docs/PROGRESS.md` tracks implementation progress against the milestones defined in §18. It **MUST** be updated at the end of every coding session.
+
+**Format:**
+
+```markdown
+# nidhi — Implementation Progress
+
+## Current Phase
+Phase 1: Core (v0.1.0) — "First Light"
+
+## Status: 🟡 In Progress
+
+### Completed
+- [ ] Feature/component with date and brief note
+
+### In Progress
+- [ ] What's currently being worked on
+
+### Blocked
+- [ ] Anything waiting on external deps or decisions
+
+### Next Up
+- [ ] What comes next per the milestone plan
+
+## Session Log
+### YYYY-MM-DD
+- What was accomplished
+- What was learned
+- What's next
+```
+
+### 21.5 CLAUDE.md Learnings Sub-section
+
+**STRICT RULE:** The `## Learnings` section in `CLAUDE.md` **MUST** be updated at the end of every coding session. This is non-negotiable.
+
+**Purpose:** Capture hard-won knowledge that prevents repeating mistakes across sessions. Each entry should be a concrete, actionable insight — not a vague observation.
+
+**Format:**
+
+```markdown
+## Learnings
+
+### BubbleTea v2
+- `tea.View.Content` is `tea.Layer` (interface), not a string. Wrap with `tea.NewLayer()`.
+- KeyPressMsg.Code is int32, not a string. Use constants from `tea` package.
+- [add entries as discoveries are made]
+
+### LipGloss v2
+- `AdaptiveColor` is NOT in the main lipgloss/v2 package. It moved to `lipgloss/v2/compat`.
+- Import path is `github.com/charmbracelet/lipgloss/v2` (beta.3). Will transition to `charm.land/lipgloss/v2`.
+- [add entries as discoveries are made]
+
+### Git Operations
+- `git stash store` expects a valid commit SHA, not a tree SHA.
+- [add entries as discoveries are made]
+
+### Go Patterns
+- [add entries as discoveries are made]
+```
+
+### 21.6 Project Initialization Checklist
+
+Run in order to bootstrap the project:
+
+```bash
+# 1. Initialize Go module
+go mod init github.com/indrasvat/nidhi
+
+# 2. Create directory structure
+mkdir -p cmd/nidhi internal/{core,git,plugin,plugins,ui/{theme,layout,components,screens,icons},config} docs
+
+# 3. Install dev tools
+make install-tools
+
+# 4. Install git hooks
+make install-hooks
+
+# 5. Add Charm v2 dependencies (pinned versions)
+go get charm.land/bubbletea/v2@latest
+go get charm.land/bubbles/v2@latest
+# LipGloss v2 comes in transitively via Bubbles v2
+
+# 6. Verify
+make build   # should produce bin/nidhi (stub main.go)
+make lint    # should pass on empty project
+make test    # should pass (no tests yet = pass)
+```
+
+### 21.7 .goreleaser.yml
+
+Minimal goreleaser config for cross-platform builds:
+
+```yaml
+version: 2
+builds:
+  - main: ./cmd/nidhi
+    binary: nidhi
+    env: [CGO_ENABLED=0]
+    goos: [linux, darwin, windows]
+    goarch: [amd64, arm64]
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.Commit}}
+      - -X main.date={{.Date}}
+archives:
+  - formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+brews:
+  - repository:
+      owner: indrasvat
+      name: homebrew-tap
+    homepage: "https://github.com/indrasvat/nidhi"
+    description: "Purpose-built TUI for git stash mastery"
+```
+
+### 21.8 .golangci.yml
+
+```yaml
+run:
+  timeout: 3m
+  go: "1.26"
+
+linters:
+  enable:
+    - errcheck
+    - govet
+    - staticcheck
+    - unused
+    - gosimple
+    - ineffassign
+    - typecheck
+    - misspell
+    - gofmt
+    - goimports
+    - revive
+
+linters-settings:
+  revive:
+    rules:
+      - name: exported
+        disabled: true  # we'll enable this once APIs stabilize
+
+issues:
+  exclude-rules:
+    - path: _test\.go
+      linters: [errcheck]
+```
 
 ---
 
