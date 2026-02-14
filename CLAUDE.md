@@ -20,6 +20,7 @@ make build           # Build binary → bin/nidhi
 make test            # Run tests with gotestsum (race detection + coverage)
 make lint            # Run golangci-lint
 make check           # lint + test (what pre-commit runs)
+make ci              # CI-only target (lint + test, fail-fast)
 make install         # Install to ~/.local/bin/nidhi
 make install-tools   # Install dev dependencies (gotestsum, golangci-lint, etc.)
 make install-hooks   # Install lefthook git hooks

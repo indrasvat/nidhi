@@ -78,7 +78,7 @@ nidhi turns `git stash` from a write-and-forget black hole into a visible, searc
 | **Blind management** | `git stash list` shows cryptic "WIP on main: abc1234" messages. No diff preview. | Developers pop wrong stashes, lose context, avoid using stash at all. |
 | **No conflict awareness** | `git stash apply` can fail with merge conflicts — no way to preview before applying. | Lost work, broken working tree, manual cleanup. |
 | **Unrenaming** | Default messages are useless. No way to rename after creation. | Stashes become unidentifiable. |
-| **Local-only** | Before Git 2.51, stashes couldn't be shared across machines. | WFH→office workflow broken. Pair programming friction. |
+| **Local-only** | Before Git 2.51, sharing stashes required manual plumbing (`git stash create` + push commit to custom ref + `git stash store` on the other side). No first-class export/import UX. | WFH→office workflow broken. Pair programming friction. |
 | **No search** | Can't search across stash diffs/content. Only `git stash list` with grep. | "I know I stashed that fix somewhere..." |
 | **Destructive by default** | `git stash drop` and `git stash clear` are permanent. No undo. | Accidental data loss. |
 | **No staleness detection** | Stashes accumulate silently. No "hey, this stash is 3 months old." | Stash lists grow unbounded, become useless. |
@@ -214,13 +214,13 @@ git fetch origin refs/stashes/$USER:refs/stashes/$USER
 git stash import refs/stashes/$USER
 ```
 
-**Docs:** [git-stash(1) — export](https://git-scm.com/docs/git-stash), [Git 2.51 release notes](https://windowsforum.com/threads/git-2-51-cruft-aware-midx-path-walk-packing-portable-stashes-on-windows.378250/)
+**Docs:** [git-stash(1) — export](https://git-scm.com/docs/git-stash), [Git 2.51 — What's New (GitLab)](https://about.gitlab.com/blog/whats-new-in-git-2-51-0/)
 
 ### 5.3 Plumbing Used
 
 | Command | Purpose in nidhi | Since |
 |---|---|---|
-| `git merge-tree --write-tree HEAD <stash>` | Conflict preview dry-run. Exit 0 = clean, 1 = conflicts. Outputs tree OID + conflicted file info. | Git 2.38 |
+| `git merge-tree --write-tree HEAD <stash>` | Conflict preview dry-run (best-effort). Exit 0 = clean, 1 = conflicts. Note: stash commits have a multi-parent structure (working tree, index, untracked); `merge-tree` against the stash commit tests the working tree parent. Results are a good heuristic but may not perfectly predict all `stash apply` edge cases involving staged/untracked changes. | Git 2.38 |
 | `git stash store -m "<msg>" <sha>` | Rename (drop old + store with new message, same SHA). Also used for undo (re-store dropped commit). | Git 1.7.7 |
 | `git fsck --unreachable --no-reflogs` | Deep undo recovery — find orphaned stash commits after reflog expiry. | Git 1.5.0 |
 | `git stash show -p [--include-untracked] <stash>` | Diff content for preview pane and search indexing. | Git 1.5.3 |
@@ -289,7 +289,7 @@ These are implemented as plugins conforming to the `Plugin` interface but ship a
 
 | ID | Requirement |
 |---|---|
-| FR-10.1 | When user presses `a` (apply) or `p` (pop), run `git merge-tree --write-tree HEAD <stash-commit>` before actually applying. |
+| FR-10.1 | When user presses `a` (apply) or `p` (pop), run `git merge-tree --write-tree HEAD <stash-commit>` before actually applying. This is a **best-effort** prediction — stash's multi-parent commit model (working tree + index + untracked) means edge cases exist where the preview may not perfectly match the actual apply result. |
 | FR-10.2 | If exit code is 0 (no conflicts): proceed with apply/pop immediately. |
 | FR-10.3 | If exit code is 1 (conflicts): show the Conflict Preview screen with per-file conflict status. |
 | FR-10.4 | Per-file status indicators: ✓ clean (green), ⚡ conflict (yellow/amber), ? unknown (gray). |
@@ -340,9 +340,9 @@ These are implemented as plugins conforming to the `Plugin` interface but ship a
 | ID | Requirement |
 |---|---|
 | FR-14.1 | After any drop operation, show a toast notification: "Dropped stash@{n}. Press `z` to undo (30s)". |
-| FR-14.2 | `z` within 30 seconds: immediately re-stores the dropped stash via `git stash store -m "<msg>" <sha>`. |
-| FR-14.3 | `z` after 30 seconds (or on a fresh launch): opens a Recovery Picker showing recently dropped stashes from `git fsck --unreachable --no-reflogs | grep commit`. |
-| FR-14.4 | In-memory undo stack (ring buffer, 50 entries). Persisted across the current session only. |
+| FR-14.2 | **Session undo** (`z` within 30 seconds): immediately re-stores the dropped stash via `git stash store -m "<msg>" <sha>`. Uses in-memory undo stack (ring buffer, 50 entries, current session only). |
+| FR-14.3 | **Cross-session recovery** (`z` after toast expires, or on a fresh launch with no undo history): opens a Recovery Picker showing recently dropped stashes discovered via `git fsck --unreachable --no-reflogs \| grep commit`. Note: `git stash clear` makes entries subject to GC pruning — recovery is best-effort and not guaranteed after `gc` runs. |
+| FR-14.4 | The two mechanisms are distinct: session undo is fast and reliable (SHA in memory); cross-session recovery is slower and best-effort (depends on GC not having pruned the objects). |
 
 #### FR-15: Stale Detection (Plugin: `stale`)
 
@@ -390,7 +390,7 @@ These are implemented as plugins conforming to the `Plugin` interface but ship a
 | Requirement | Implementation |
 |---|---|
 | No data loss, ever. | Every destructive git operation is preceded by storing the SHA. Undo is always possible within the session. |
-| Graceful degradation on old Git | Feature-gate by detected git version. Core CRUD works on any Git ≥ 2.0. |
+| Graceful degradation on old Git | Feature-gate by detected git version. Core CRUD works on Git ≥ 2.22 (required for `branch --show-current`, `stash push` with modern flags). |
 | Clean terminal restore on crash | BubbleTea v2 handles alt-screen cleanup. Add `defer` for panic recovery. |
 | No corruption of git state | All operations use standard `git stash` plumbing. No direct `.git/` manipulation. |
 | Works in bare repos | Detect bare repo, show informational message, exit cleanly. |
@@ -404,7 +404,7 @@ These are implemented as plugins conforming to the `Plugin` interface but ship a
 | **Color** | TrueColor (primary), ANSI256 (fallback), 16-color (minimal), 1-bit (monochrome). BubbleTea v2's built-in color downsampling handles this automatically. |
 | **Nerd Fonts** | Optional. Auto-detect. Fall back to ASCII glyphs if not available. |
 | **Locale** | UTF-8. CJK character width handled by LipGloss. |
-| **Git** | ≥ 2.0 (core), ≥ 2.38 (conflict preview), ≥ 2.51 (export/import). |
+| **Git** | ≥ 2.22 (core — `branch --show-current`, modern `stash push`), ≥ 2.38 (conflict preview), ≥ 2.51 (export/import). |
 | **SSH** | Works over SSH (no mouse-dependent features required). |
 | **Screen** | Min 80×24. Responsive layout adapts to available space. |
 
@@ -495,7 +495,7 @@ type KeyHandler interface {
     Plugin
     // KeyBindings returns the keybindings this plugin provides.
     // They are merged into the global keymap. Conflicts are resolved
-    // by priority (core > plugin > user).
+    // by priority (user > core > plugin — user overrides always win).
     KeyBindings() []KeyBinding
     // HandleKey is called when a registered key is pressed.
     HandleKey(key KeyEvent, state AppState) (AppState, tea.Cmd)
@@ -515,7 +515,7 @@ type ScreenProvider interface {
 // StashHook plugins can intercept stash operations.
 type StashHook interface {
     Plugin
-    // BeforeApply is called before a stash is applied. Return an error to abort.
+    // BeforeApply is called before a stash is applied. Return proceed=false to abort.
     BeforeApply(stash Stash) (proceed bool, cmd tea.Cmd)
     // AfterDrop is called after a stash is dropped.
     AfterDrop(stash Stash, sha string) tea.Cmd
@@ -583,7 +583,8 @@ type StashCache interface {
     // List returns all stashes. Cached until Invalidate().
     List(ctx context.Context) ([]Stash, error)
     // Diff returns the diff for a stash. Lazily loaded, LRU cached.
-    Diff(ctx context.Context, index int) (string, error)
+    // Keyed by stash SHA (not index) since indices shift after drop/reorder.
+    Diff(ctx context.Context, sha string) (string, error)
     // Invalidate clears the cache. Called after mutations.
     Invalidate()
 }
@@ -765,9 +766,9 @@ Built with: `lipgloss.JoinVertical(lipgloss.Top, statusBar, content, footerBar)`
 
 | Mockup | Screens Covered | File |
 |---|---|---|
-| **v1 — Initial** | Split-pane stash browser | `nidhi-mockup.html` |
-| **v2 — Progressive Disclosure** | LIST (A), PREVIEW (B), DETAIL (C), Export, Confirm | `nidhi-v2-mockup.html` |
 | **Full Design Spec** | All 10 screens with Agni theme, Nerd Font icons, keybind spec | `nidhi-full-mockup.html` |
+
+> **Note:** Earlier design iterations (v1 split-pane, v2 progressive disclosure) were consolidated into the full design spec above. There are no separate v1/v2 mockup files.
 
 ---
 
@@ -1035,7 +1036,7 @@ Rendered as a centered modal via LipGloss Canvas compositing (`lipgloss.NewCanva
 |---|---|---|---|
 | **Tier 1** | Single key | ~95% of daily use | `j` `k` `a` `p` `d` `n` `r` `e` `/` `?` `Tab` `Enter` `Esc` |
 | **Tier 2** | Double key / Shift | ~4% (filters, reorder) | `fb` (filter branch) `fs` (filter stale) `fc` (clear filter) `J` `K` (reorder) |
-| **Tier 3** | Ctrl combo | ~1% (viewport, select) | `^d` `^u` (page scroll) `^p` (patch mode) `^a` (select all in export) |
+| **Tier 3** | Ctrl combo | ~1% (viewport, select) | `^d` `^u` (page scroll) `^p` (patch mode) `Space` (toggle selection in export, see §11.2) |
 
 ### 11.2 Complete Keymap
 
@@ -1219,6 +1220,7 @@ Flags:
   -v, --version           Show version
       --log-level string  Log level (off, error, warn, info, debug)
       --trace-git         Log all git commands
+      --debug             Print startup timing breakdown and exit
       --no-color          Disable colors
       --no-animation      Disable animations
       --icons string      Icon set (auto, nerd, ascii)
@@ -1381,7 +1383,7 @@ T+500ms   Background: build search index (if eager mode)
 
 ### 15.2 Error Display Patterns
 
-- **Toast** (non-fatal): Appears at bottom of screen. Auto-dismisses after 5s. Red border for errors, yellow for warnings.
+- **Toast** (non-fatal): Appears at bottom of screen. Three classes: **info** (green border, auto-dismiss 5s), **error** (red border, auto-dismiss 5s), **undo** (yellow border, auto-dismiss 30s, shows recovery key).
 - **Inline** (recoverable): Error text replaces the operation's expected output. E.g., rename failure shows error where the new message would have been.
 - **Full-screen** (fatal): Clean message on a blank screen. Exit code. Log path.
 
@@ -1573,8 +1575,6 @@ Semantic versioning. `v0.x.y` until the API (config format, plugin interface) st
 
 | Mockup | Description |
 |---|---|
-| `nidhi-mockup.html` | v1 initial split-pane design |
-| `nidhi-v2-mockup.html` | v2 progressive disclosure redesign |
 | `nidhi-full-mockup.html` | Complete 10-screen spec with Agni theme, all states |
 
 ### Inspiration
@@ -1611,6 +1611,7 @@ The project uses a single `Makefile` as the build automation entry point. All CI
 | `clean` | Remove build artifacts | `rm -rf bin/ coverage.out` |
 | `release` | Build release with goreleaser | `goreleaser release --clean` |
 | `coverage` | Open coverage report in browser | `go tool cover -html=coverage.out` |
+| `ci` | CI-only target (lint + test, fail-fast) | `$(MAKE) lint && $(MAKE) test` |
 
 ### 21.2 CLAUDE.md — AI Agent Instructions
 
@@ -1771,6 +1772,8 @@ brews:
 ### 21.8 .golangci.yml
 
 ```yaml
+version: "2"
+
 run:
   timeout: 3m
   go: "1.26"
@@ -1785,20 +1788,21 @@ linters:
     - ineffassign
     - typecheck
     - misspell
+    - revive
+  settings:
+    revive:
+      rules:
+        - name: exported
+          disabled: true  # we'll enable this once APIs stabilize
+  exclusions:
+    rules:
+      - path: _test\.go
+        linters: [errcheck]
+
+formatters:
+  enable:
     - gofmt
     - goimports
-    - revive
-
-linters-settings:
-  revive:
-    rules:
-      - name: exported
-        disabled: true  # we'll enable this once APIs stabilize
-
-issues:
-  exclude-rules:
-    - path: _test\.go
-      linters: [errcheck]
 ```
 
 ---
