@@ -4,9 +4,9 @@
 
 ## Current Phase
 
-Phase 3: Power User (v0.3.0) — "Master of Stashes"
+Phase 4: Sync (v0.4.0) — "Across Machines"
 
-## Status: 🟢 Phase 2 Complete, Phase 3 TODO
+## Status: 🟢 Phase 3 Complete, Phase 4 TODO
 
 ### Milestone Targets (from PRD §18)
 
@@ -29,7 +29,7 @@ Phase 3: Power User (v0.3.0) — "Master of Stashes"
 - [x] Deep search plugin (fuzzy search across messages/files/diffs)
 - [x] Filter plugin (branch filter, stale filter)
 - [x] Stale detection plugin (badge, bulk drop)
-- [ ] Reorder plugin (Shift+J/K move)
+- [x] Reorder plugin (Shift+J/K move)
 
 #### Phase 4: Sync (v0.4.0) — "Across Machines"
 - [ ] Export plugin (multi-select, ref path, remote selector, push)
@@ -220,6 +220,20 @@ Phase 3: Power User (v0.3.0) — "Master of Stashes"
   - 10 stale tests (staleness calculation table test with 12 cases, filter, count, preserve fields, empty list, plugin API)
   - 747 total tests passing, 0 lint issues, 92.9% filter / 55.8% stale coverage
 
+- Implemented task 022: Reorder plugin with journal-based crash recovery
+  - internal/plugins/reorder/reorder.go: Plugin implementing KeyHandler with Shift+J/K
+  - J (Shift+J) moves selected stash down one position, K (Shift+K) moves up
+  - Drop-all + re-store algorithm: drops all stashes, re-stores in new order via `git stash store`
+  - Cursor follows the moved stash so selection is preserved
+  - internal/plugins/reorder/journal.go: Journal persistence for transactional safety
+  - Journal written before reorder, removed after success — crash recovery restores original order
+  - Uses separate journal path (move-journal.json) to avoid conflict with rename's reorder-journal.json
+  - ComputeNewOrder: correct array reordering with no off-by-one (fixed spec bug in index adjustment)
+  - Recovery on startup: detects incomplete journal, clears partial state, re-stores from journal
+  - Plugin registered in main.go as KeyHandler, recovery wired alongside rename recovery
+  - 24 reorder tests: 7 journal unit tests, 5 ComputeNewOrder unit tests, 8 plugin unit tests, 4 git integration tests
+  - 771 total tests passing, 0 lint issues, 54.1% reorder coverage
+
 ## Task List
 
 | # | Task | Phase | Status | Depends On |
@@ -245,8 +259,8 @@ Phase 3: Power User (v0.3.0) — "Master of Stashes"
 | 018 | New stash screen | P2 | DONE | 013, 006 |
 | 019 | Phase 2 integration & E2E | P2 | DONE | 015-018 |
 | 020 | Search plugin | P3 | DONE | 006, 004 |
-| 021 | Filter & stale plugins | P3 | TODO | 006, 004 |
-| 022 | Reorder plugin | P3 | TODO | 013, 017 |
+| 021 | Filter & stale plugins | P3 | DONE | 006, 004 |
+| 022 | Reorder plugin | P3 | DONE | 013, 017 |
 | 023 | Export/import plugin | P4 | TODO | 006, 001 |
 | 024 | Help overlay & mouse support | P5 | TODO | 006, 007 |
 | 025 | Config file & polish | P5 | TODO | 002, 006 |

@@ -14,6 +14,7 @@ import (
 	"github.com/indrasvat/nidhi/internal/plugins/conflict"
 	"github.com/indrasvat/nidhi/internal/plugins/filter"
 	"github.com/indrasvat/nidhi/internal/plugins/rename"
+	"github.com/indrasvat/nidhi/internal/plugins/reorder"
 	"github.com/indrasvat/nidhi/internal/plugins/search"
 	"github.com/indrasvat/nidhi/internal/plugins/stale"
 	"github.com/indrasvat/nidhi/internal/plugins/undo"
@@ -163,6 +164,15 @@ func run() error {
 	}
 	_ = stalePlugin // Passive plugin — no registry registration needed.
 
+	// Register reorder plugin.
+	reorderPlugin := reorder.New()
+	if err := reorderPlugin.Init(pctx); err != nil {
+		logger.Error("failed to init reorder plugin", "error", err)
+	} else {
+		_ = keyHandlers.Register(reorderPlugin, 100)
+		logger.Info("registered reorder plugin")
+	}
+
 	// Recover from any interrupted rename operations.
 	if rename.HasIncompleteOperation() {
 		recovered, recErr := rename.RecoverFromJournal(ctx, runner)
@@ -170,6 +180,16 @@ func run() error {
 			logger.Error("failed to recover from interrupted rename", "error", recErr)
 		} else if recovered > 0 {
 			logger.Info("recovered stashes from interrupted rename", "count", recovered)
+		}
+	}
+
+	// Recover from any interrupted reorder operations.
+	if reorder.HasIncompleteOperation() {
+		recovered, recErr := reorder.RecoverFromJournal(ctx, reorder.DefaultJournalPath(), runner)
+		if recErr != nil {
+			logger.Error("failed to recover from interrupted reorder", "error", recErr)
+		} else if recovered > 0 {
+			logger.Info("recovered stashes from interrupted reorder", "count", recovered)
 		}
 	}
 

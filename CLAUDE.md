@@ -123,7 +123,8 @@ UI Layer — BubbleTea v2 (screen router, layout engine, overlay manager, compon
 - Stash untracked files (3rd parent): use `ls-tree --name-only -r stash^3` (NOT `diff-tree`) because the untracked commit is rootless and `diff-tree` produces no output for commits without parents.
 - `DefaultRunner.Run()` swallows `exec.ExitError` — returns `(stdout, nil)` for non-zero exits. Always use `RunExitCode()` for operations that must detect failure.
 - `git stash push` returns exit 0 even when there are no local changes. Detect via output containing "No local changes to save".
-- `git stash store -m <msg> <sha>` re-stores a previously dropped stash. Used for undo recovery.
+- `git stash store -m <msg> <sha>` re-stores a previously dropped stash. Used for undo recovery and reorder.
+- Reorder algorithm: drop ALL stashes (highest first), re-store in new order (last to first, since store prepends). After removing element at sourceIndex, insert at targetIndex directly — NO index adjustment needed.
 - `strings.SplitSeq` (Go 1.24+ iterator) is preferred by golangci-lint stringsseq rule over `strings.Split` in range loops.
 - `fmt.Appendf(nil, ...)` is preferred by golangci-lint fmtappendf rule over `[]byte(fmt.Sprintf(...))`.
 
@@ -138,6 +139,7 @@ UI Layer — BubbleTea v2 (screen router, layout engine, overlay manager, compon
 - `core` package uses type aliases (`type AppState = plugin.AppState`) to avoid import indirection.
 - Plugin registration happens in `cmd/nidhi/main.go`, not `plugin/loader.go`, to avoid circular imports (plugins/ → plugin/ → plugins/ cycle).
 - `plugin.GitRunner` and `git.GitRunner` have identical methods — Go structural typing allows passing either where the other is expected.
+- Rename plugin uses `~/.local/state/nidhi/reorder-journal.json` (for rename's drop+re-store). Reorder plugin uses `~/.local/state/nidhi/move-journal.json` to avoid collision.
 
 ### UI Components
 - Mockup badge colors: LIST=gold, PREVIEW=aqua, DETAIL=blue, SEARCH=purple, EXPORT=orange, NEW=green, CONFLICT=yellow, HELP=dimmed.
