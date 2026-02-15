@@ -41,7 +41,7 @@ Phase 5: Polish (v1.0.0) — "Release"
 - [x] Config file support (TOML + git config + env vars + CLI flags + structured logging + debug timing)
 - [x] Mouse support (click, scroll)
 - [ ] Custom themes (theme file format)
-- [ ] Comprehensive tests (>70% coverage)
+- [x] Comprehensive tests (>70% coverage)
 - [ ] Documentation (README, man page)
 - [ ] Homebrew tap
 
@@ -277,6 +277,30 @@ Phase 5: Polish (v1.0.0) — "Release"
     logging setup (off/debug/trace-git/directory creation), DefaultLogPath, DebugTiming, ParseLogLevel, priority override
   - 866 total tests passing, 0 lint issues
 
+- Implemented task 026: Comprehensive E2E tests
+  - internal/e2e/phase3_test.go: 22 tests covering Phase 3+4 plugins
+    - Search: index build & query, scope filtering (messages/files/diffs/branch), activation via '/', empty query
+    - Filter: branch filter, stale filter, both filters composing
+    - Stale: MarkStaleWithTime, stale count & filter integration, BulkDropStaleCmd
+    - Reorder: J (move down), K (move up), boundary no-op, multiple swaps
+    - Cross-feature: reorder→rename→drop sequence, filter+stale integration
+  - internal/e2e/full_test.go: ~35 tests covering cross-cutting concerns
+    - Help overlay: toggle, render, hidden, scrolling, categories, dimmed background
+    - Mode manager: full cycle, help from any mode, invalid transitions, stack depth limit
+    - Mouse: click to select row, scroll events, click outside list
+    - Config: defaults valid, CLI flags override env, stale threshold, logging setup
+    - Preview: real diff loading via DiffLoadedMsg, file cycling
+    - Full workflow: LIST→PREVIEW→DETAIL→LIST transitions with real stash diffs
+    - Git version: detection, AtLeast comparisons, merge-tree 2.38 gate, export/import feature gate
+    - Performance: LIST render 50 stashes < 100ms, stash parsing 200 stashes < 500ms
+    - State management: WithStashes cursor clamp, SelectedStash
+    - New stash: empty screen rendering
+    - Event bus: pub/sub delivery, multiple subscribers
+    - Git ops: large stash with 20 files
+    - Binary: build successfully, --help flag
+  - Fixed buildPluginStashes to set RawMessage (needed for reorder plugin store operations)
+  - 916 total tests passing, 0 lint issues
+
 ## Task List
 
 | # | Task | Phase | Status | Depends On |
@@ -307,7 +331,7 @@ Phase 5: Polish (v1.0.0) — "Release"
 | 023 | Export/import plugin | P4 | DONE | 006, 001 |
 | 024 | Help overlay & mouse support | P5 | DONE | 006, 007 |
 | 025 | Config file & polish | P5 | DONE | 002, 006 |
-| 026 | Comprehensive E2E tests | Final | TODO | 000-024 |
+| 026 | Comprehensive E2E tests | Final | DONE | 000-024 |
 | 027 | Performance validation | Final | TODO | 026 |
 | 028 | CI/CD & GitHub Actions | Final | TODO | 027 |
 | 029 | Documentation & README | Final | TODO | 026 |

@@ -52,9 +52,10 @@ func buildPluginStashes(t *testing.T, dir string) []plugin.Stash {
 	stashes := make([]plugin.Stash, len(shas))
 	for i := range shas {
 		stashes[i] = plugin.Stash{
-			Index:   i,
-			SHA:     shas[i],
-			Message: msgs[i],
+			Index:      i,
+			SHA:        shas[i],
+			Message:    msgs[i],
+			RawMessage: msgs[i],
 		}
 	}
 	return stashes
