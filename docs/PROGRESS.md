@@ -4,9 +4,9 @@
 
 ## Current Phase
 
-Phase 2: Safety Net (v0.2.0) — "No Fear"
+Phase 3: Power User (v0.3.0) — "Master of Stashes"
 
-## Status: 🟡 Phase 2 In Progress
+## Status: 🟢 Phase 2 Complete, Phase 3 TODO
 
 ### Milestone Targets (from PRD §18)
 
@@ -174,6 +174,19 @@ Phase 2: Safety Net (v0.2.0) — "No Fear"
   - 29 new tests: flag construction, tab navigation, view rendering, message input, scope/option toggles
   - 665 total tests passing, 0 lint issues, 77.7% screens coverage
 
+- Implemented task 019: Phase 2 integration & E2E tests (quality gate)
+  - internal/e2e/phase2_test.go: 13 cross-feature integration tests
+  - Conflict flow: ConflictsDetected (merge-tree detects conflict in same-line change), CleanApply (different files merge cleanly)
+  - Undo flow: DropAndRestore (drop+store roundtrip), RingBufferLIFO (3 drops undone in LIFO order), CrossSessionRecovery (fsck finds orphaned stash commit)
+  - Rename flow: MiddleStash (rename stash@{1}, verify ordering + SHA preservation)
+  - New stash flow: CreateWithMessage, ScopeToggle_StagedOnly (--staged flag), IncludeUntracked (--include-untracked)
+  - Cross-feature: ConflictThenUndo (detect conflict, drop, undo restore), RenameThenDropThenUndo (rename then drop then undo preserves renamed message)
+  - Edge cases: EmptyRepo_NoStashes, StashWithUntrackedCollision (ls-tree ^3 detects collision)
+  - internal/e2e/screenshot_test.go: 3 placeholder screenshot tests behind `screenshot` build tag
+  - Shared helpers added to helpers_test.go: stashCount, stashMessages, stashSHAs, stashSHA, fileExists, requireGitVersion
+  - 678 total tests passing, 0 lint issues
+  - **Phase 2 ("No Fear") is now COMPLETE**
+
 ## Task List
 
 | # | Task | Phase | Status | Depends On |
@@ -197,7 +210,7 @@ Phase 2: Safety Net (v0.2.0) — "No Fear"
 | 016 | Undo plugin | P2 | DONE | 013, 007 |
 | 017 | Rename plugin | P2 | DONE | 013, 008 |
 | 018 | New stash screen | P2 | DONE | 013, 006 |
-| 019 | Phase 2 integration & E2E | P2 | TODO | 015-018 |
+| 019 | Phase 2 integration & E2E | P2 | DONE | 015-018 |
 | 020 | Search plugin | P3 | TODO | 006, 004 |
 | 021 | Filter & stale plugins | P3 | TODO | 006, 004 |
 | 022 | Reorder plugin | P3 | TODO | 013, 017 |

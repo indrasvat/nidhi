@@ -169,3 +169,64 @@ func (c *noopCache) Invalidate()                           { c.invalidated = tru
 func (c *noopCache) PreloadDiffs(_ context.Context, _ int) {}
 
 var _ git.StashCache = (*noopCache)(nil)
+
+// ─── Phase 2 helpers ────────────────────────────────────────
+
+func fileExists(dir, name string) bool {
+	_, err := os.Stat(filepath.Join(dir, name))
+	return err == nil
+}
+
+func stashCount(t *testing.T, dir string) int {
+	t.Helper()
+	lines := gitStashList(t, dir)
+	return len(lines)
+}
+
+func stashMessages(t *testing.T, dir string) []string {
+	t.Helper()
+	out := gitCmd(t, dir, "stash", "list", "--format=%gs")
+	if out == "" {
+		return nil
+	}
+	return strings.Split(out, "\n")
+}
+
+func stashSHAs(t *testing.T, dir string) []string {
+	t.Helper()
+	out := gitCmd(t, dir, "stash", "list", "--format=%H")
+	if out == "" {
+		return nil
+	}
+	return strings.Split(out, "\n")
+}
+
+func stashSHA(t *testing.T, dir string, index int) string {
+	t.Helper()
+	ref := fmt.Sprintf("stash@{%d}", index)
+	return gitCmd(t, dir, "rev-parse", ref)
+}
+
+func requireGitVersion(t *testing.T, major, minor int) {
+	t.Helper()
+	cmd := exec.Command("git", "--version")
+	out, err := cmd.Output()
+	if err != nil {
+		t.Skipf("could not determine git version: %v", err)
+	}
+	ver := strings.TrimSpace(string(out))
+	parts := strings.Fields(ver)
+	if len(parts) < 3 {
+		t.Skipf("could not parse git version: %s", ver)
+	}
+	vParts := strings.Split(parts[2], ".")
+	if len(vParts) < 2 {
+		t.Skipf("could not parse version number: %s", parts[2])
+	}
+	var gotMajor, gotMinor int
+	fmt.Sscanf(vParts[0], "%d", &gotMajor)
+	fmt.Sscanf(vParts[1], "%d", &gotMinor)
+	if gotMajor < major || (gotMajor == major && gotMinor < minor) {
+		t.Skipf("requires git >= %d.%d, have %s", major, minor, parts[2])
+	}
+}
