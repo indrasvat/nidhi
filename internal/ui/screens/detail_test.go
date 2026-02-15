@@ -13,6 +13,25 @@ import (
 	"github.com/indrasvat/nidhi/internal/ui/theme"
 )
 
+func stripAnsi(s string) string {
+	result := make([]byte, 0, len(s))
+	inEscape := false
+	for i := 0; i < len(s); i++ {
+		if s[i] == 0x1b {
+			inEscape = true
+			continue
+		}
+		if inEscape {
+			if (s[i] >= 'A' && s[i] <= 'Z') || (s[i] >= 'a' && s[i] <= 'z') {
+				inEscape = false
+			}
+			continue
+		}
+		result = append(result, s[i])
+	}
+	return string(result)
+}
+
 func newTestDetail() *DetailScreen {
 	th := theme.NewAgni()
 	ds := NewDetailScreen(th)
@@ -370,5 +389,43 @@ func TestDetailScreen_FocusedGetter(t *testing.T) {
 
 	if ds.Focused() != PaneDiff {
 		t.Errorf("after Tab: Focused() = %v, want PaneDiff", ds.Focused())
+	}
+}
+
+func TestDetailScreen_ViewShowsFileHeader(t *testing.T) {
+	ds := newTestDetail()
+	state := core.AppState{
+		Stashes: makeStashes(5),
+		Mode:    core.ModeDetail,
+	}
+
+	view := ds.View(state, 120, 30)
+	plain := stripAnsi(view)
+
+	// After SetDiff + selectFirstFile, the diff view should show the selected file's name.
+	selected := ds.tree.SelectedFile()
+	if selected == nil {
+		t.Fatal("expected a selected file")
+	}
+	if !strings.Contains(plain, selected.Path) {
+		t.Errorf("view should contain selected file name %q", selected.Path)
+	}
+}
+
+func TestDetailScreen_FocusChangesDividerStyle(t *testing.T) {
+	ds := newTestDetail()
+	state := core.AppState{Mode: core.ModeDetail}
+
+	// Tree focused.
+	ds.focused = PaneTree
+	viewTree := ds.View(state, 120, 30)
+
+	// Diff focused.
+	ds.focused = PaneDiff
+	viewDiff := ds.View(state, 120, 30)
+
+	// Divider color changes with focus — ANSI codes should differ.
+	if viewTree == viewDiff {
+		t.Error("divider styling should change when focus changes")
 	}
 }

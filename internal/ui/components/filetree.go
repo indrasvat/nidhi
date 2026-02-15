@@ -95,6 +95,7 @@ type FileTreeModel struct {
 	theme   theme.Theme
 	width   int
 	useNerd bool
+	focused bool
 }
 
 // NewFileTreeModel creates a new file tree model with the given theme.
@@ -186,6 +187,11 @@ func (m *FileTreeModel) ResetCursor() {
 	m.cursor = 0
 }
 
+// SetFocused sets whether this pane has keyboard focus.
+func (m *FileTreeModel) SetFocused(focused bool) {
+	m.focused = focused
+}
+
 // FileCount returns the total number of files across all categories.
 func (m *FileTreeModel) FileCount() int {
 	return len(m.Staged) + len(m.Working) + len(m.Untracked)
@@ -199,10 +205,14 @@ type treeItem struct {
 }
 
 // visibleItems returns the flattened list of visible items.
+// Empty categories (zero files) are hidden to save vertical space.
 func (m *FileTreeModel) visibleItems() []treeItem {
 	var items []treeItem
 
 	addCategory := func(cat FileCategory, files []FileEntry) {
+		if len(files) == 0 {
+			return
+		}
 		items = append(items, treeItem{isCategory: true, category: cat})
 		if !m.collapsed[cat] {
 			for i := range files {
@@ -274,7 +284,11 @@ func (m *FileTreeModel) View() string {
 		selected := i == m.cursor
 		var rowBg color.Color
 		if selected {
-			rowBg = m.theme.BgElevated()
+			if m.focused {
+				rowBg = m.theme.BgElevated()
+			} else {
+				rowBg = m.theme.BgSurface() // Dimmed highlight when unfocused.
+			}
 		} else {
 			rowBg = bg
 		}
@@ -310,8 +324,10 @@ func (m *FileTreeModel) renderCategory(cat FileCategory, bg color.Color, selecte
 	}
 
 	fg := m.categoryColor(cat)
-	if selected {
+	if selected && m.focused {
 		fg = m.theme.AccentGold()
+	} else if selected {
+		fg = m.theme.FgSecondary() // Dimmed when unfocused.
 	}
 
 	style := lipgloss.NewStyle().
@@ -338,8 +354,10 @@ func (m *FileTreeModel) renderFile(f FileEntry, bg color.Color, selected bool) s
 		Background(bg)
 
 	nameFg := m.theme.FgPrimary()
-	if selected {
+	if selected && m.focused {
 		nameFg = m.theme.AccentGold()
+	} else if selected {
+		nameFg = m.theme.FgSecondary() // Dimmed when unfocused.
 	}
 
 	nameStyle := lipgloss.NewStyle().

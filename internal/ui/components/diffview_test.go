@@ -217,3 +217,64 @@ func TestDiffViewModel_ViewRendersContent(t *testing.T) {
 		t.Errorf("view should contain filename from diff, got: %q", plain)
 	}
 }
+
+func TestParseDiff_NoTrailingGhostLine(t *testing.T) {
+	// Diff with trailing newline should not produce a ghost empty line.
+	diff := "diff --git a/f b/f\n--- a/f\n+++ b/f\n@@ -1,2 +1,2 @@\n context\n-old\n+new\n"
+	lines := parseDiff(diff)
+
+	last := lines[len(lines)-1]
+	if last.Content == "" && last.Type == DiffLineContext {
+		t.Error("parseDiff should not produce a trailing ghost empty line")
+	}
+}
+
+func TestDiffViewModel_GutterFillsViewport(t *testing.T) {
+	dv := NewDiffViewModel(theme.NewAgni(), 80, 20)
+	// Short diff — fewer lines than viewport height.
+	dv.SetContent("diff --git a/f b/f\n--- a/f\n+++ b/f\n@@ -1 +1 @@\n-old\n+new")
+
+	view := dv.View()
+	outputLines := strings.Split(view, "\n")
+
+	// Output should fill the full viewport height (20 lines).
+	if len(outputLines) < 20 {
+		t.Errorf("gutter should fill viewport: got %d lines, want >= 20", len(outputLines))
+	}
+
+	// Every line should contain the gutter separator.
+	for i, line := range outputLines {
+		if !strings.Contains(line, "\u2502") {
+			t.Errorf("line %d missing gutter separator: %q", i, stripAnsi(line))
+		}
+	}
+}
+
+func TestDiffViewModel_FileHeader(t *testing.T) {
+	dv := NewDiffViewModel(theme.NewAgni(), 80, 20)
+	dv.SetContent(sampleDiff)
+	dv.SetFileName("src/auth/token.go")
+
+	view := dv.View()
+	plain := stripAnsi(view)
+
+	if !strings.Contains(plain, "src/auth/token.go") {
+		t.Errorf("view should contain file header, got: %q", plain)
+	}
+}
+
+func TestDiffViewModel_FocusChangesStyle(t *testing.T) {
+	dv := NewDiffViewModel(theme.NewAgni(), 80, 20)
+	dv.SetContent(sampleDiff)
+	dv.SetFileName("test.go")
+
+	dv.SetFocused(true)
+	focused := dv.View()
+
+	dv.SetFocused(false)
+	unfocused := dv.View()
+
+	if focused == unfocused {
+		t.Error("focused and unfocused views should differ in header styling")
+	}
+}

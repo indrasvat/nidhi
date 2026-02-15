@@ -108,6 +108,10 @@ func (d *DetailScreen) View(state core.AppState, width, height int) string {
 	d.height = height
 	d.recalcSplit()
 
+	// Wire focus state into sub-components before rendering.
+	d.tree.SetFocused(d.focused == PaneTree)
+	d.diffView.SetFocused(d.focused == PaneDiff)
+
 	split := layout.ComputeSplit(width, layout.DetailSplitRatio)
 
 	// Left pane: file tree.
@@ -122,9 +126,13 @@ func (d *DetailScreen) View(state core.AppState, width, height int) string {
 		return treeRendered
 	}
 
-	// Vertical divider.
+	// Vertical divider — accent color on the focused side.
+	dividerFg := d.theme.FgDimmed()
+	if d.focused == PaneDiff {
+		dividerFg = d.theme.SemanticBlue()
+	}
 	dividerStyle := lipgloss.NewStyle().
-		Foreground(d.theme.FgDimmed())
+		Foreground(dividerFg)
 	divider := dividerStyle.Render(strings.Repeat("\u2502\n", max(height-1, 0)) + "\u2502")
 
 	// Right pane: diff view.
@@ -192,9 +200,11 @@ func (d *DetailScreen) handleKey(msg tea.KeyPressMsg, state core.AppState) (core
 func (d *DetailScreen) updateDiffForSelected() {
 	file := d.tree.SelectedFile()
 	if file == nil {
+		d.diffView.SetFileName("")
 		d.diffView.SetContent("Select a file to view its diff.")
 		return
 	}
+	d.diffView.SetFileName(file.Path)
 	if content, ok := d.fileDiffs[file.Path]; ok {
 		d.diffView.SetContent(content)
 	} else {

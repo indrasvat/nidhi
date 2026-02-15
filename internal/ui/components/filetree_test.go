@@ -167,8 +167,48 @@ func TestFileTreeModel_EmptyFiles(t *testing.T) {
 	view := m.View()
 	plain := stripAnsi(view)
 
-	if !strings.Contains(plain, "(0)") {
-		t.Error("empty tree should show (0) counts")
+	if !strings.Contains(plain, "No files") {
+		t.Errorf("empty tree should show 'No files', got: %q", plain)
+	}
+}
+
+func TestFileTreeModel_HidesEmptyCategories(t *testing.T) {
+	m := NewFileTreeModel(theme.NewAgni(), 40, false)
+	// Only working files — staged and untracked should be hidden.
+	m.SetFiles([]FileEntry{
+		{Path: "pkg/config.go", Status: FileModified, Category: CategoryWorking},
+	})
+
+	view := m.View()
+	plain := stripAnsi(view)
+
+	if strings.Contains(plain, "staged") {
+		t.Error("empty 'staged' category should be hidden")
+	}
+	if strings.Contains(plain, "untracked") {
+		t.Error("empty 'untracked' category should be hidden")
+	}
+	if !strings.Contains(plain, "working") {
+		t.Error("non-empty 'working' category should be visible")
+	}
+}
+
+func TestFileTreeModel_FocusDimming(t *testing.T) {
+	m := NewFileTreeModel(theme.NewAgni(), 40, false)
+	m.SetFiles(testFiles())
+	m.CursorDown() // Move to first file.
+
+	// Focused view should use gold accent.
+	m.SetFocused(true)
+	focusedView := m.View()
+
+	// Unfocused view should use dimmed styling.
+	m.SetFocused(false)
+	unfocusedView := m.View()
+
+	// The ANSI escape codes differ between focused and unfocused.
+	if focusedView == unfocusedView {
+		t.Error("focused and unfocused views should differ in styling")
 	}
 }
 

@@ -30,12 +30,14 @@ type DiffLine struct {
 
 // DiffViewModel manages a scrollable diff view with syntax coloring.
 type DiffViewModel struct {
-	lines  []DiffLine
-	theme  theme.Theme
-	width  int
-	height int
-	offset int // Scroll offset (first visible line).
-	ready  bool
+	lines    []DiffLine
+	theme    theme.Theme
+	width    int
+	height   int
+	offset   int // Scroll offset (first visible line).
+	ready    bool
+	focused  bool
+	fileName string // Currently displayed file name (shown as header bar).
 }
 
 // NewDiffViewModel creates a new diff view model.
@@ -58,6 +60,16 @@ func (d *DiffViewModel) SetContent(diffStr string) {
 func (d *DiffViewModel) SetSize(width, height int) {
 	d.width = width
 	d.height = height
+}
+
+// SetFocused sets whether this pane has keyboard focus.
+func (d *DiffViewModel) SetFocused(focused bool) {
+	d.focused = focused
+}
+
+// SetFileName sets the file name displayed in the header bar.
+func (d *DiffViewModel) SetFileName(name string) {
+	d.fileName = name
 }
 
 // ScrollDown scrolls down by n lines.
@@ -95,7 +107,33 @@ func (d *DiffViewModel) View() string {
 		return style.Render("No diff loaded")
 	}
 
-	return d.renderLines()
+	var parts []string
+
+	if d.fileName != "" {
+		parts = append(parts, d.renderFileHeader())
+	}
+
+	parts = append(parts, d.renderLines())
+	return strings.Join(parts, "\n")
+}
+
+// renderFileHeader renders the file name bar above the diff content.
+func (d *DiffViewModel) renderFileHeader() string {
+	th := d.theme
+	fg := th.FgSecondary()
+	bg := th.BgOverlay()
+	if d.focused {
+		fg = th.FgPrimary()
+	}
+
+	style := lipgloss.NewStyle().
+		Foreground(fg).
+		Background(bg).
+		Bold(d.focused).
+		Width(d.width).
+		MaxWidth(d.width)
+
+	return style.Render(" " + d.fileName)
 }
 
 // renderLines renders visible diff lines with syntax coloring and line numbers.
@@ -139,9 +177,15 @@ func (d *DiffViewModel) renderLines() string {
 		Foreground(th.FgDimmed()).
 		Background(bg)
 
+	// Account for the file header line consuming one row.
+	viewportHeight := d.height
+	if d.fileName != "" {
+		viewportHeight = max(viewportHeight-1, 1)
+	}
+
 	// Determine visible range.
-	end := min(d.offset+d.height, len(d.lines))
-	contentWidth := max(d.width-6, 1) // 4 (line num) + 3 (separator)
+	end := min(d.offset+viewportHeight, len(d.lines))
+	contentWidth := max(d.width-7, 1) // 4 (line num) + 3 (separator)
 
 	var rendered []string
 	for i := d.offset; i < end; i++ {
@@ -183,6 +227,15 @@ func (d *DiffViewModel) renderLines() string {
 		rendered = append(rendered, lineNum+sep+content)
 	}
 
+	// Fill remaining viewport rows with empty gutter lines so the separator
+	// extends the full height of the pane.
+	for i := len(rendered); i < viewportHeight; i++ {
+		lineNum := lineNumStyle.Render("")
+		sep := sepStyle.Render(" \u2502 ")
+		content := contextStyle.Render(padToWidth("", contentWidth))
+		rendered = append(rendered, lineNum+sep+content)
+	}
+
 	return strings.Join(rendered, "\n")
 }
 
@@ -206,6 +259,10 @@ func parseDiff(diff string) []DiffLine {
 		return nil
 	}
 	rawLines := strings.Split(diff, "\n")
+	// Trim trailing empty strings produced by Split on trailing newlines.
+	for len(rawLines) > 0 && rawLines[len(rawLines)-1] == "" {
+		rawLines = rawLines[:len(rawLines)-1]
+	}
 	var result []DiffLine
 
 	var oldNum, newNum int
