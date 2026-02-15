@@ -17,6 +17,8 @@ type StatusBarParams struct {
 	Branch     string
 	StashCount int
 	GitVersion plugin.GitVersion
+	AppVersion string // e.g., "dev", "v0.1.0"
+	AppCommit  string // e.g., "abc1234"
 	Width      int
 	UseNerd    bool
 }
@@ -68,8 +70,17 @@ func (sb StatusBar) Render(p StatusBarParams) string {
 		branchStyle.Render("⎇ "+p.Branch) + "  " +
 		countStyle.Render(fmt.Sprintf("%d stashes", p.StashCount))
 
-	// Build right side: git version.
-	right := versionStyle.Render(fmt.Sprintf("git %d.%d", p.GitVersion.Major, p.GitVersion.Minor))
+	// Build right side: app version + git version.
+	var versionParts []string
+	if p.AppVersion != "" {
+		appVer := p.AppVersion
+		if p.AppCommit != "" && p.AppCommit != "unknown" && len(p.AppCommit) >= 7 {
+			appVer += " (" + p.AppCommit[:7] + ")"
+		}
+		versionParts = append(versionParts, appVer)
+	}
+	versionParts = append(versionParts, fmt.Sprintf("git %d.%d", p.GitVersion.Major, p.GitVersion.Minor))
+	right := versionStyle.Render(strings.Join(versionParts, " \u00b7 "))
 
 	// Compute spacing between left and right.
 	leftWidth := lipgloss.Width(left)

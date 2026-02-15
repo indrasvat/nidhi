@@ -289,18 +289,24 @@ func run(flags config.CLIFlags) error {
 	useNerd := cfg.General.Icons == "nerd"
 
 	model.BgColor = th.BgDeep()
+	model.Version = version
+	model.Commit = commit
+	model.Welcome = true
 
 	model.UI = &uiRenderer{
-		list:      listScreen,
-		preview:   previewScreen,
-		detail:    detailScreen,
-		help:      helpOverlay,
-		toast:     &toastModel,
-		statusBar: components.NewStatusBar(th),
-		footer:    components.NewFooter(th),
-		repoName:  repoName,
-		useNerd:   useNerd,
-		cache:     &cacheAdapter{inner: gitCache},
+		list:       listScreen,
+		preview:    previewScreen,
+		detail:     detailScreen,
+		help:       helpOverlay,
+		toast:      &toastModel,
+		statusBar:  components.NewStatusBar(th),
+		footer:     components.NewFooter(th),
+		theme:      th,
+		repoName:   repoName,
+		useNerd:    useNerd,
+		cache:      &cacheAdapter{inner: gitCache},
+		appVersion: version,
+		appCommit:  commit,
 	}
 
 	// If --debug, print timing and exit without starting TUI.
@@ -422,9 +428,17 @@ type uiRenderer struct {
 	statusBar components.StatusBar
 	footer    components.Footer
 
-	repoName string
-	useNerd  bool
-	cache    plugin.StashCache
+	theme      theme.Theme
+	repoName   string
+	useNerd    bool
+	cache      plugin.StashCache
+	appVersion string
+	appCommit  string
+}
+
+// RenderWelcome renders the startup welcome screen.
+func (u *uiRenderer) RenderWelcome(width, height int, version, commit string) string {
+	return screens.RenderWelcome(u.theme, width, height, version, commit)
 }
 
 // RenderContent renders the full screen content for the current mode.
@@ -437,6 +451,8 @@ func (u *uiRenderer) RenderContent(state core.AppState) string {
 		Branch:     state.Branch,
 		StashCount: len(state.Stashes),
 		GitVersion: state.GitVersion,
+		AppVersion: u.appVersion,
+		AppCommit:  u.appCommit,
 		Width:      dims.TotalWidth,
 		UseNerd:    u.useNerd,
 	})

@@ -582,12 +582,11 @@ func TestE2E_FullWorkflow_ScreenTransitions(t *testing.T) {
 		t.Fatalf("mode = %v after Enter, want DETAIL", state.Mode)
 	}
 
-	// Esc → back to PREVIEW.
+	// Esc: DetailScreen passes through (core handles Esc via popMode).
 	ds := screens.NewDetailScreen(th)
-	ds.SetPreviousMode(core.ModePreview)
 	state, _ = ds.Update(tea.KeyPressMsg{Code: tea.KeyEscape}, state)
-	if state.Mode != core.ModePreview {
-		t.Fatalf("mode = %v after Esc, want PREVIEW", state.Mode)
+	if state.Mode != core.ModeDetail {
+		t.Fatalf("mode = %v after Esc, want DETAIL (screen doesn't handle Esc)", state.Mode)
 	}
 }
 

@@ -167,11 +167,11 @@ func (l *ListScreen) handleKey(msg tea.KeyPressMsg, state core.AppState) (core.A
 	n := len(state.Stashes)
 
 	switch {
-	// Cursor navigation.
-	case msg.Text == "j":
+	// Cursor navigation (j/k and arrow keys).
+	case msg.Text == "j", msg.Code == tea.KeyDown:
 		l.moveCursor(1, n)
 		state.Cursor = l.cursor
-	case msg.Text == "k":
+	case msg.Text == "k", msg.Code == tea.KeyUp:
 		l.moveCursor(-1, n)
 		state.Cursor = l.cursor
 	case msg.Text == "g":

@@ -225,6 +225,18 @@ func (p *PreviewScreen) handleKey(msg tea.KeyPressMsg, state core.AppState) (cor
 		}
 		return state, nil
 
+	// Arrow keys mapped to j/k for stash navigation.
+	case msg.Code == tea.KeyDown:
+		prevCursor := p.list.cursor
+		p.list.moveCursor(1, len(state.Stashes))
+		state.Cursor = p.list.cursor
+		return state, p.maybeReloadDiff(prevCursor, state)
+	case msg.Code == tea.KeyUp:
+		prevCursor := p.list.cursor
+		p.list.moveCursor(-1, len(state.Stashes))
+		state.Cursor = p.list.cursor
+		return state, p.maybeReloadDiff(prevCursor, state)
+
 	// j/k navigate the list and may reload diff.
 	case msg.Text == "j", msg.Text == "k", msg.Text == "g", msg.Text == "G":
 		prevCursor := p.list.cursor

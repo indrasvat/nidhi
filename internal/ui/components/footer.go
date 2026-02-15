@@ -58,6 +58,7 @@ func HintsForMode(mode plugin.Mode) []KeyHint {
 			{"\u23CE", "detail"},
 			{"a", "apply"},
 			{"p", "pop"},
+			{"?", "help"},
 		}
 	case plugin.ModeDetail:
 		return []KeyHint{
@@ -68,6 +69,7 @@ func HintsForMode(mode plugin.Mode) []KeyHint {
 			{"p", "pop"},
 			{"b", "branch"},
 			{"r", "rename"},
+			{"?", "help"},
 			{"esc", "back"},
 		}
 	case plugin.ModeSearch:
@@ -75,6 +77,7 @@ func HintsForMode(mode plugin.Mode) []KeyHint {
 			{"\u2191\u2193", "results"},
 			{"\u23CE", "open"},
 			{"\u21E5", "filter"},
+			{"?", "help"},
 			{"esc", "close"},
 		}
 	case plugin.ModeNewStash:
@@ -82,6 +85,7 @@ func HintsForMode(mode plugin.Mode) []KeyHint {
 			{"\u23CE", "create"},
 			{"\u21E5", "cycle scope"},
 			{"^p", "patch mode"},
+			{"?", "help"},
 			{"esc", "cancel"},
 		}
 	case plugin.ModeExport:
@@ -90,6 +94,7 @@ func HintsForMode(mode plugin.Mode) []KeyHint {
 			{"a", "all"},
 			{"\u21E5", "edit ref"},
 			{"i", "switch to import"},
+			{"?", "help"},
 			{"esc", "back"},
 		}
 	case plugin.ModeImport:
@@ -97,6 +102,7 @@ func HintsForMode(mode plugin.Mode) []KeyHint {
 			{"space", "toggle"},
 			{"\u23CE", "import"},
 			{"e", "switch to export"},
+			{"?", "help"},
 			{"esc", "back"},
 		}
 	case plugin.ModeConflict:
@@ -105,6 +111,7 @@ func HintsForMode(mode plugin.Mode) []KeyHint {
 			{"a", "apply anyway"},
 			{"p", "pop anyway"},
 			{"b", "branch first"},
+			{"?", "help"},
 			{"esc", "cancel"},
 		}
 	case plugin.ModeHelp:

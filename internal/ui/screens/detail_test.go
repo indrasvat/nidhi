@@ -20,7 +20,6 @@ func newTestDetail() *DetailScreen {
 	ds.height = 30
 	ds.recalcSplit()
 	ds.SetDiff(testDiff())
-	ds.SetPreviousMode(core.ModeList)
 	return ds
 }
 
@@ -99,29 +98,17 @@ func TestDetailScreen_FocusSwitching(t *testing.T) {
 	}
 }
 
-func TestDetailScreen_EscReturnsToList(t *testing.T) {
+func TestDetailScreen_EscPassesThrough(t *testing.T) {
+	// Esc is handled by core/app.go (popMode), not by DetailScreen.
+	// DetailScreen should pass Esc through unchanged.
 	ds := newTestDetail()
-	ds.SetPreviousMode(core.ModeList)
 	state := core.AppState{Mode: core.ModeDetail}
 
 	msg := tea.KeyPressMsg{Code: tea.KeyEscape}
 	newState, _ := ds.Update(msg, state)
 
-	if newState.Mode != core.ModeList {
-		t.Errorf("mode = %v, want ModeList", newState.Mode)
-	}
-}
-
-func TestDetailScreen_EscReturnsToPreview(t *testing.T) {
-	ds := newTestDetail()
-	ds.SetPreviousMode(core.ModePreview)
-	state := core.AppState{Mode: core.ModeDetail}
-
-	msg := tea.KeyPressMsg{Code: tea.KeyEscape}
-	newState, _ := ds.Update(msg, state)
-
-	if newState.Mode != core.ModePreview {
-		t.Errorf("mode = %v, want ModePreview", newState.Mode)
+	if newState.Mode != core.ModeDetail {
+		t.Errorf("mode = %v, want ModeDetail (unchanged)", newState.Mode)
 	}
 }
 

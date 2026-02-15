@@ -39,7 +39,8 @@ func (m *mockTheme) Color(_ string) string { return "#000000" }
 // mockUIRenderer handles cursor navigation keys the same way ListScreen does.
 type mockUIRenderer struct{}
 
-func (m *mockUIRenderer) RenderContent(_ AppState) string { return "mock" }
+func (m *mockUIRenderer) RenderContent(_ AppState) string            { return "mock" }
+func (m *mockUIRenderer) RenderWelcome(_, _ int, _, _ string) string { return "welcome" }
 func (m *mockUIRenderer) HandleMessage(msg tea.Msg, state AppState) (AppState, tea.Cmd) {
 	if keyMsg, ok := msg.(tea.KeyPressMsg); ok {
 		switch keyMsg.Text {

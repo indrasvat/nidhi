@@ -185,28 +185,17 @@ func TestE2E_EscReturnsFromDetail(t *testing.T) {
 		t.Skip("skipping E2E test in short mode")
 	}
 
+	// Esc is handled by core/app.go (popMode), not by DetailScreen.
+	// DetailScreen should NOT change mode on Esc — it passes through.
 	th := theme.NewAgni()
-
-	// DETAIL with previous=LIST → Esc should return to LIST.
 	ds := screens.NewDetailScreen(th)
-	ds.SetPreviousMode(core.ModeList)
 	state := core.AppState{Mode: core.ModeDetail}
 
 	msg := tea.KeyPressMsg{Code: tea.KeyEscape}
 	state, _ = ds.Update(msg, state)
 
-	if state.Mode != core.ModeList {
-		t.Errorf("Esc from DETAIL: mode = %v, want ModeList", state.Mode)
-	}
-
-	// DETAIL with previous=PREVIEW → Esc should return to PREVIEW.
-	ds2 := screens.NewDetailScreen(th)
-	ds2.SetPreviousMode(core.ModePreview)
-	state2 := core.AppState{Mode: core.ModeDetail}
-
-	state2, _ = ds2.Update(msg, state2)
-	if state2.Mode != core.ModePreview {
-		t.Errorf("Esc from DETAIL (prev=PREVIEW): mode = %v, want ModePreview", state2.Mode)
+	if state.Mode != core.ModeDetail {
+		t.Errorf("Esc should not change mode at screen level: mode = %v, want ModeDetail", state.Mode)
 	}
 }
 
@@ -239,12 +228,11 @@ func TestE2E_FullModeTransitionCycle(t *testing.T) {
 		t.Fatalf("Enter: mode = %v, want ModeDetail", state.Mode)
 	}
 
-	// DETAIL → Esc → LIST.
+	// DETAIL → Esc: DetailScreen passes through (core handles Esc via popMode).
 	ds := screens.NewDetailScreen(th)
-	ds.SetPreviousMode(core.ModeList)
 	state, _ = ds.Update(tea.KeyPressMsg{Code: tea.KeyEscape}, state)
-	if state.Mode != core.ModeList {
-		t.Fatalf("Esc: mode = %v, want ModeList", state.Mode)
+	if state.Mode != core.ModeDetail {
+		t.Fatalf("Esc should not change mode at screen level: mode = %v, want ModeDetail", state.Mode)
 	}
 }
 
@@ -401,7 +389,6 @@ func TestE2E_DetailWithRealDiff(t *testing.T) {
 
 	th := theme.NewAgni()
 	ds := screens.NewDetailScreen(th)
-	ds.SetPreviousMode(core.ModeList)
 	ds.SetDiff(diff)
 
 	state := core.AppState{Mode: core.ModeDetail}

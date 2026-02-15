@@ -30,9 +30,8 @@ type DetailScreen struct {
 	tree     components.FileTreeModel
 	diffView components.DiffViewModel
 
-	fileDiffs    map[string]string // filename → diff content
-	focused      FocusedPane
-	previousMode core.Mode
+	fileDiffs map[string]string // filename → diff content
+	focused   FocusedPane
 
 	theme theme.Theme
 
@@ -72,11 +71,6 @@ func (d *DetailScreen) SetDiff(diff string) {
 	d.tree.SetFiles(entries)
 	d.selectFirstFile()
 	d.updateDiffForSelected()
-}
-
-// SetPreviousMode sets the mode to return to on Esc.
-func (d *DetailScreen) SetPreviousMode(mode core.Mode) {
-	d.previousMode = mode
 }
 
 // Focused returns which pane currently has focus.
@@ -147,13 +141,8 @@ func (d *DetailScreen) handleKey(msg tea.KeyPressMsg, state core.AppState) (core
 		}
 		return state, nil
 
-	// Esc returns to previous mode.
-	case msg.Code == tea.KeyEscape:
-		state.Mode = d.previousMode
-		return state, nil
-
-	// j/k navigate within the focused pane.
-	case msg.Text == "j":
+	// j/down navigate within the focused pane.
+	case msg.Text == "j", msg.Code == tea.KeyDown:
 		if d.focused == PaneTree {
 			d.tree.CursorDown()
 			d.updateDiffForSelected()
@@ -162,7 +151,8 @@ func (d *DetailScreen) handleKey(msg tea.KeyPressMsg, state core.AppState) (core
 		}
 		return state, nil
 
-	case msg.Text == "k":
+	// k/up navigate within the focused pane.
+	case msg.Text == "k", msg.Code == tea.KeyUp:
 		if d.focused == PaneTree {
 			d.tree.CursorUp()
 			d.updateDiffForSelected()

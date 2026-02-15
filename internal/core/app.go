@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"fmt"
 	"image/color"
 	"log/slog"
 
@@ -14,6 +15,7 @@ import (
 // This avoids circular imports between core and ui/screens.
 type UIRenderer interface {
 	RenderContent(state AppState) string
+	RenderWelcome(width, height int, version, commit string) string
 	HandleMessage(msg tea.Msg, state AppState) (AppState, tea.Cmd)
 	OnModeChange(prev, next Mode, state AppState) tea.Cmd
 }
@@ -38,6 +40,14 @@ type Model struct {
 	// BgColor sets the terminal's default background color via OSC 11.
 	// Set by cmd/nidhi/main.go to the theme's bg.deep color.
 	BgColor color.Color
+
+	// Build metadata, set by cmd/nidhi/main.go.
+	Version string // e.g., "dev", "v0.1.0"
+	Commit  string // e.g., "abc1234"
+
+	// Welcome shows the startup welcome screen until Enter is pressed.
+	// Set to true by cmd/nidhi/main.go; defaults to false for tests.
+	Welcome bool
 
 	ready bool
 }
@@ -93,7 +103,20 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 // View implements tea.Model.
 func (m *Model) View() tea.View {
 	if !m.ready {
-		v := tea.NewView("Loading nidhi...")
+		banner := m.startupBanner()
+		v := tea.NewView(banner)
+		v.AltScreen = true
+		v.BackgroundColor = m.BgColor
+		return v
+	}
+	if m.Welcome {
+		var content string
+		if m.UI != nil {
+			content = m.UI.RenderWelcome(m.state.Width, m.state.Height, m.Version, m.Commit)
+		} else {
+			content = m.startupBanner()
+		}
+		v := tea.NewView(content)
 		v.AltScreen = true
 		v.BackgroundColor = m.BgColor
 		return v
@@ -137,6 +160,20 @@ func (m *Model) handleWindowSize(msg tea.WindowSizeMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m *Model) handleKeyPress(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+	// Welcome screen: only Enter/q/Ctrl+C are active.
+	if m.Welcome {
+		switch {
+		case msg.Code == tea.KeyEnter:
+			m.Welcome = false
+			return m, nil
+		case msg.Text == "q":
+			return m, tea.Quit
+		case msg.Text == "c" && msg.Mod.Contains(tea.ModCtrl):
+			return m, tea.Quit
+		}
+		return m, nil
+	}
+
 	// Global keys.
 	switch {
 	case msg.Text == "q":
@@ -160,6 +197,8 @@ func (m *Model) handleKeyPress(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m.handleListKeys(msg)
 	case ModePreview:
 		return m.handlePreviewKeys(msg)
+	case ModeDetail:
+		return m.handleDetailKeys(msg)
 	}
 
 	return m.delegateToPluginKeyHandlers(msg)
@@ -214,6 +253,21 @@ func (m *Model) handlePreviewKeys(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	}
 
 	// Delegate all other keys (j/k/h/l, diff scroll, CRUD) to UI screens.
+	if m.UI != nil {
+		newState, cmd := m.UI.HandleMessage(msg, m.state)
+		m.state = newState
+		if cmd != nil {
+			return m, cmd
+		}
+	}
+
+	return m.delegateToPluginKeyHandlers(msg)
+}
+
+func (m *Model) handleDetailKeys(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+	// Detail mode delegates ALL keys to UI (Tab for tree/diff focus toggle,
+	// j/k/arrows for file navigation, Enter for tree expand/collapse).
+	// No mode-switch interception here — Esc and ? are handled globally.
 	if m.UI != nil {
 		newState, cmd := m.UI.HandleMessage(msg, m.state)
 		m.state = newState
@@ -325,4 +379,16 @@ func modeInSlice(mode Mode, modes []Mode) bool {
 		}
 	}
 	return false
+}
+
+func (m *Model) startupBanner() string {
+	ver := m.Version
+	if ver == "" {
+		ver = "dev"
+	}
+	commitInfo := ""
+	if m.Commit != "" && m.Commit != "unknown" && len(m.Commit) >= 7 {
+		commitInfo = " (" + m.Commit[:7] + ")"
+	}
+	return fmt.Sprintf("\n\n   \u25c6 nidhi\n   %s%s\n\n   treasure your stashes\n", ver, commitInfo)
 }
