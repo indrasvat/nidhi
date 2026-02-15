@@ -10,6 +10,13 @@ type Config struct {
 	Keys        KeysConfig        `toml:"keys"`
 	Performance PerformanceConfig `toml:"performance"`
 	Log         LogConfig         `toml:"log"`
+
+	// CLI-only flags (not persisted in config file).
+	Debug       bool   `toml:"-"` // --debug: print timing and exit.
+	TraceGit    bool   `toml:"-"` // --trace-git: log all git commands.
+	NoColor     bool   `toml:"-"` // --no-color / NO_COLOR: disable colors.
+	NoAnimation bool   `toml:"-"` // --no-animation / REDUCE_MOTION: disable animations.
+	Directory   string `toml:"-"` // -C: run as if started in <path>.
 }
 
 type GeneralConfig struct {

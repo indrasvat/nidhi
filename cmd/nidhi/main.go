@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/indrasvat/nidhi/internal/config"
@@ -31,42 +32,96 @@ var (
 )
 
 func main() {
-	if len(os.Args) > 1 {
-		switch os.Args[1] {
+	flags := parseFlags()
+
+	if err := run(flags); err != nil {
+		fmt.Fprintf(os.Stderr, "nidhi: %v\n", err)
+		os.Exit(1)
+	}
+}
+
+func parseFlags() config.CLIFlags {
+	var flags config.CLIFlags
+
+	args := os.Args[1:]
+	for i := 0; i < len(args); i++ {
+		switch args[i] {
 		case "--version", "-v":
 			fmt.Printf("nidhi %s (commit: %s, built: %s)\n", version, commit, date)
 			os.Exit(0)
 		case "--help", "-h":
 			printUsage()
 			os.Exit(0)
+		case "--debug":
+			flags.Debug = boolPtr(true)
+		case "--trace-git":
+			flags.TraceGit = boolPtr(true)
+		case "--no-color":
+			flags.NoColor = boolPtr(true)
+		case "--no-animation":
+			flags.NoAnimation = boolPtr(true)
+		case "--log-level":
+			if i+1 < len(args) {
+				i++
+				flags.LogLevel = &args[i]
+			}
+		case "--icons":
+			if i+1 < len(args) {
+				i++
+				flags.Icons = &args[i]
+			}
+		case "-C", "--directory":
+			if i+1 < len(args) {
+				i++
+				flags.Directory = &args[i]
+			}
 		}
 	}
 
-	if err := run(); err != nil {
-		fmt.Fprintf(os.Stderr, "nidhi: %v\n", err)
-		os.Exit(1)
-	}
+	return flags
 }
 
-func run() error {
+func boolPtr(b bool) *bool { return &b }
+
+func run(flags config.CLIFlags) error {
+	var timing *config.DebugTiming
+	if flags.Debug != nil && *flags.Debug {
+		timing = config.NewDebugTiming()
+	}
+
 	// Load config.
-	cfg, err := config.Load(config.CLIFlags{})
+	cfg, err := config.Load(flags)
 	if err != nil {
 		return fmt.Errorf("loading config: %w", err)
 	}
 
-	// Set up logger.
-	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
-		Level: slog.LevelError,
-	}))
-
-	// Detect working directory.
-	workDir, err := os.Getwd()
+	// Set up structured logging.
+	logger, logCleanup, err := config.SetupLogging(&cfg)
 	if err != nil {
-		return fmt.Errorf("getting working directory: %w", err)
+		// Fall back to stderr logger if log file setup fails.
+		logger = slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
+			Level: slog.LevelError,
+		}))
+		logger.Error("failed to set up log file, falling back to stderr", "error", err)
+	} else {
+		defer logCleanup()
+	}
+
+	// Handle -C / --directory.
+	workDir := cfg.Directory
+	if workDir == "" {
+		workDir, err = os.Getwd()
+		if err != nil {
+			return fmt.Errorf("getting working directory: %w", err)
+		}
+	} else {
+		if err := os.Chdir(workDir); err != nil {
+			return fmt.Errorf("changing to directory %s: %w", workDir, err)
+		}
 	}
 
 	// Set up git runner and detect version.
+	gitStart := time.Now()
 	runner := git.NewDefaultRunner(workDir, logger)
 	ctx, cancel := context.WithTimeout(context.Background(), git.DefaultTimeout)
 	defer cancel()
@@ -78,6 +133,9 @@ func run() error {
 
 	// Detect current branch.
 	branch, _ := runner.Run(ctx, "rev-parse", "--abbrev-ref", "HEAD")
+	if timing != nil {
+		timing.Since("git detection", gitStart)
+	}
 
 	// Build services.
 	bus := core.NewBus()
@@ -104,6 +162,7 @@ func run() error {
 	}
 
 	// Create registries and register built-in plugins.
+	pluginStart := time.Now()
 	keyHandlers := plugin.NewRegistry[plugin.KeyHandler]()
 	screenProviders := plugin.NewRegistry[plugin.ScreenProvider]()
 	stashHooks := plugin.NewRegistry[plugin.StashHook]()
@@ -204,11 +263,22 @@ func run() error {
 		}
 	}
 
+	if timing != nil {
+		timing.Since("plugin init", pluginStart)
+	}
+
 	// Create initial state.
 	state := core.NewAppState(workDir, branch, pluginGitVer)
 
 	// Create the model.
 	model := core.New(state, pctx, bus, logger, keyHandlers, screenProviders, stashHooks)
+
+	// If --debug, print timing and exit without starting TUI.
+	if cfg.Debug {
+		timing.Since("model creation", pluginStart)
+		timing.Print()
+		return nil
+	}
 
 	// Run BubbleTea.
 	p := tea.NewProgram(model)

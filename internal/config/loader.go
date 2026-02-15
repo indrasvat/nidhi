@@ -86,6 +86,22 @@ func loadFromEnv(cfg *Config) {
 	if v := os.Getenv("NIDHI_THEME"); v != "" {
 		cfg.Theme.Name = strings.TrimSpace(v)
 	}
+
+	// Standard env vars (PRD §12.4).
+	if _, ok := os.LookupEnv("NO_COLOR"); ok {
+		cfg.NoColor = true
+	}
+	if _, ok := os.LookupEnv("REDUCE_MOTION"); ok {
+		cfg.NoAnimation = true
+	}
+	if v := os.Getenv("NERD_FONTS"); v != "" {
+		switch v {
+		case "1", "true":
+			cfg.General.Icons = "nerd"
+		case "0", "false":
+			cfg.General.Icons = "ascii"
+		}
+	}
 }
 
 func applyFlags(cfg *Config, flags CLIFlags) {
@@ -100,5 +116,21 @@ func applyFlags(cfg *Config, flags CLIFlags) {
 		if v == "auto" || v == "nerd" || v == "ascii" {
 			cfg.General.Icons = v
 		}
+	}
+
+	if flags.TraceGit != nil {
+		cfg.TraceGit = *flags.TraceGit
+	}
+	if flags.Debug != nil {
+		cfg.Debug = *flags.Debug
+	}
+	if flags.NoColor != nil {
+		cfg.NoColor = *flags.NoColor
+	}
+	if flags.NoAnimation != nil {
+		cfg.NoAnimation = *flags.NoAnimation
+	}
+	if flags.Directory != nil && *flags.Directory != "" {
+		cfg.Directory = *flags.Directory
 	}
 }

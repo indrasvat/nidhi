@@ -37,9 +37,9 @@ Phase 5: Polish (v1.0.0) — "Release"
 - [x] Git version gating (graceful feature disable for old Git)
 
 #### Phase 5: Polish (v1.0.0) — "Release"
-- [ ] Help overlay (full keybind reference)
-- [ ] Config file support (TOML + git config + env vars)
-- [ ] Mouse support (click, scroll)
+- [x] Help overlay (full keybind reference)
+- [x] Config file support (TOML + git config + env vars + CLI flags + structured logging + debug timing)
+- [x] Mouse support (click, scroll)
 - [ ] Custom themes (theme file format)
 - [ ] Comprehensive tests (>70% coverage)
 - [ ] Documentation (README, man page)
@@ -265,6 +265,18 @@ Phase 5: Polish (v1.0.0) — "Release"
   - 8 mouse tests (row click, compact mode, scroll, chip click, checkbox click, status bar, footer)
   - 839 total tests passing, 0 lint issues, 100% mouse coverage, 79.7% screens coverage
 
+- Implemented task 025: Config file polish — env vars, CLI flags, structured logging, debug timing
+  - internal/config/config.go: Added CLI-only fields (Debug, TraceGit, NoColor, NoAnimation, Directory) with `toml:"-"` tags
+  - internal/config/loader.go: Extended loadFromEnv() with NO_COLOR (presence-based), REDUCE_MOTION, NERD_FONTS (1/true→nerd, 0/false→ascii)
+  - Extended applyFlags() with TraceGit, Debug, NoColor, NoAnimation, Directory
+  - internal/config/logging.go: SetupLogging with slog → JSON handler, XDG state dir (~/.local/state/nidhi/nidhi.log)
+  - TraceGit forces debug level, "off" level returns discard logger, auto-creates log directory
+  - internal/config/debug.go: DebugTiming for --debug startup breakdown (Record, Since, Print, Entries)
+  - cmd/nidhi/main.go: Full CLI flag parser, structured logging setup, --debug exit, -C directory override
+  - 27 new config tests: NO_COLOR (including empty value), REDUCE_MOTION, NERD_FONTS, all CLI flags,
+    logging setup (off/debug/trace-git/directory creation), DefaultLogPath, DebugTiming, ParseLogLevel, priority override
+  - 866 total tests passing, 0 lint issues
+
 ## Task List
 
 | # | Task | Phase | Status | Depends On |
@@ -294,7 +306,7 @@ Phase 5: Polish (v1.0.0) — "Release"
 | 022 | Reorder plugin | P3 | DONE | 013, 017 |
 | 023 | Export/import plugin | P4 | DONE | 006, 001 |
 | 024 | Help overlay & mouse support | P5 | DONE | 006, 007 |
-| 025 | Config file & polish | P5 | TODO | 002, 006 |
+| 025 | Config file & polish | P5 | DONE | 002, 006 |
 | 026 | Comprehensive E2E tests | Final | TODO | 000-024 |
 | 027 | Performance validation | Final | TODO | 026 |
 | 028 | CI/CD & GitHub Actions | Final | TODO | 027 |
