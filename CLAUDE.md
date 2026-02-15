@@ -137,6 +137,9 @@ UI Layer — BubbleTea v2 (screen router, layout engine, overlay manager, compon
 - `plugin` package is the canonical source for domain types (Stash, AppState, GitVersion, interfaces).
 - `git` package has its own parallel types that must be bridged via adapters in `cmd/nidhi/main.go`.
 - `core` package uses type aliases (`type AppState = plugin.AppState`) to avoid import indirection.
+- **UIRenderer pattern**: `core` cannot import `ui/screens` (circular dependency). The `core.UIRenderer` interface is injected from `cmd/nidhi/main.go` which has access to all packages. This wires real ListScreen/PreviewScreen/DetailScreen/HelpOverlay/StatusBar/Footer/Toast into the core model. Without this, the TUI renders placeholder text.
+- **Mode change side effects**: `pushMode()` returns a `tea.Cmd` via `UIRenderer.OnModeChange()` — used to trigger diff loading when entering PREVIEW/DETAIL modes.
+- **Always verify TUI renders real content** — unit tests can pass while the top-level model still returns placeholder strings if the rendering pipeline isn't wired end-to-end. Use `scripts/setup-demo.sh` + iTerm2 driver to verify.
 - Plugin registration happens in `cmd/nidhi/main.go`, not `plugin/loader.go`, to avoid circular imports (plugins/ → plugin/ → plugins/ cycle).
 - `plugin.GitRunner` and `git.GitRunner` have identical methods — Go structural typing allows passing either where the other is expected.
 - Rename plugin uses `~/.local/state/nidhi/reorder-journal.json` (for rename's drop+re-store). Reorder plugin uses `~/.local/state/nidhi/move-journal.json` to avoid collision.
