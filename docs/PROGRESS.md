@@ -320,6 +320,14 @@ Phase 5: Polish (v1.0.0) — "Release"
   - docs/profiling-results.md: documented all measurements with pass/fail
   - 933 total tests passing, 0 lint issues
 
+- Implemented task 028: CI/CD and GitHub Actions
+  - .github/workflows/ci.yml: CI pipeline — lint, test (Go 1.26 matrix on Linux + macOS), coverage > 70% gate, build + verify, E2E tests
+  - .github/workflows/release.yml: release pipeline — goreleaser on v* tags, cross-platform binaries, GitHub Releases
+  - .github/dependabot.yml: weekly dependency updates for gomod and github-actions
+  - .goreleaser.yml: expanded with checksums, changelog groups, Homebrew formula, release metadata
+  - Makefile: added coverage, coverage-check, release-check, release-dry-run targets
+  - goreleaser check validates config successfully
+
 ## Task List
 
 | # | Task | Phase | Status | Depends On |
@@ -352,6 +360,6 @@ Phase 5: Polish (v1.0.0) — "Release"
 | 025 | Config file & polish | P5 | DONE | 002, 006 |
 | 026 | Comprehensive E2E tests | Final | DONE | 000-024 |
 | 027 | Performance validation | Final | DONE | 026 |
-| 028 | CI/CD & GitHub Actions | Final | TODO | 027 |
+| 028 | CI/CD & GitHub Actions | Final | DONE | 027 |
 | 029 | Documentation & README | Final | TODO | 026 |
 | 030 | Homebrew tap & release | Final | TODO | 028, 029 |

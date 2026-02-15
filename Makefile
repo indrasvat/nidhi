@@ -20,7 +20,7 @@ GOLANGCI   := $(shell command -v golangci-lint 2>/dev/null)
 LEFTHOOK   := $(shell command -v lefthook 2>/dev/null)
 
 # ─── Targets ──────────────────────────────────────────────
-.PHONY: build test lint check ci e2e bench bench-short profile perf-test install install-tools install-hooks clean release coverage help
+.PHONY: build test lint check ci e2e bench bench-short profile perf-test install install-tools install-hooks clean release coverage coverage-check release-check release-dry-run help
 
 ## build: Compile binary to bin/nidhi
 build:
@@ -114,9 +114,30 @@ clean:
 release:
 	goreleaser release --clean
 
-## coverage: Open coverage report in browser
+## coverage: Generate coverage report
 coverage: test
-	go tool cover -html=coverage.out
+	go tool cover -func=coverage.out
+	go tool cover -html=coverage.out -o coverage.html
+	@echo "Coverage report: coverage.html"
+
+## coverage-check: Check coverage meets minimum threshold
+coverage-check: coverage
+	@echo "Checking coverage thresholds..."
+	@CORE_COV=$$(go tool cover -func=coverage.out | grep 'internal/core/' | awk '{sum+=$$NF; n++} END {if(n>0) printf "%.1f", sum/n; else print "0.0"}'); \
+	GIT_COV=$$(go tool cover -func=coverage.out | grep 'internal/git/' | awk '{sum+=$$NF; n++} END {if(n>0) printf "%.1f", sum/n; else print "0.0"}'); \
+	echo "internal/core coverage: $$CORE_COV%"; \
+	echo "internal/git coverage: $$GIT_COV%"; \
+	echo "$$CORE_COV 70.0" | awk '{if ($$1 < $$2) {print "FAIL: internal/core below 70%"; exit 1}}'; \
+	echo "$$GIT_COV 70.0" | awk '{if ($$1 < $$2) {print "FAIL: internal/git below 70%"; exit 1}}'
+
+## release-check: Validate goreleaser configuration
+release-check:
+	goreleaser check
+	@echo "goreleaser config is valid"
+
+## release-dry-run: Dry-run goreleaser (build but don't publish)
+release-dry-run:
+	goreleaser release --snapshot --clean
 
 ## help: Show this help
 help:
