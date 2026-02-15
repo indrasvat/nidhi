@@ -27,8 +27,8 @@ Phase 3: Power User (v0.3.0) — "Master of Stashes"
 
 #### Phase 3: Power User (v0.3.0) — "Master of Stashes"
 - [x] Deep search plugin (fuzzy search across messages/files/diffs)
-- [ ] Filter plugin (branch filter, stale filter)
-- [ ] Stale detection plugin (badge, bulk drop)
+- [x] Filter plugin (branch filter, stale filter)
+- [x] Stale detection plugin (badge, bulk drop)
 - [ ] Reorder plugin (Shift+J/K move)
 
 #### Phase 4: Sync (v0.4.0) — "Across Machines"
@@ -203,6 +203,22 @@ Phase 3: Power User (v0.3.0) — "Master of Stashes"
   - Plugin registered in main.go as both KeyHandler and ScreenProvider
   - 33 search plugin tests: index unit tests, diff parser tests, plugin unit tests, view tests, 3 integration tests
   - 711 total tests passing, 0 lint issues, 86.4% search plugin coverage
+
+- Implemented task 021: Filter & stale detection plugins
+  - internal/plugins/filter/filter.go: Plugin implementing KeyHandler for filter toggling
+  - `f` toggles branch filter (show only stashes from current branch), `F` toggles stale filter
+  - Filters compose with AND logic via FilterStashes() — branch + stale = only stale stashes on current branch
+  - Active filters stored in state.Filters with ID/Label/Value for status bar chip rendering
+  - Cursor resets to 0 on filter change to avoid out-of-bounds
+  - internal/plugins/stale/stale.go: Passive plugin for staleness computation
+  - MarkStaleWithTime: deterministic staleness computation with configurable threshold (default 14 days)
+  - StaleStashes/StaleCount: helper functions for filtering and counting stale entries
+  - BulkDropStaleCmd: drops stale stashes from highest index first to preserve ordering
+  - ConfigStore integration for stale_days setting
+  - Both plugins registered in main.go
+  - 14 filter tests (FilterStashes unit, KeyHandler toggle/compose, cursor reset, integration with stale marking)
+  - 10 stale tests (staleness calculation table test with 12 cases, filter, count, preserve fields, empty list, plugin API)
+  - 747 total tests passing, 0 lint issues, 92.9% filter / 55.8% stale coverage
 
 ## Task List
 

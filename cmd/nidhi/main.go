@@ -12,8 +12,10 @@ import (
 	"github.com/indrasvat/nidhi/internal/git"
 	"github.com/indrasvat/nidhi/internal/plugin"
 	"github.com/indrasvat/nidhi/internal/plugins/conflict"
+	"github.com/indrasvat/nidhi/internal/plugins/filter"
 	"github.com/indrasvat/nidhi/internal/plugins/rename"
 	"github.com/indrasvat/nidhi/internal/plugins/search"
+	"github.com/indrasvat/nidhi/internal/plugins/stale"
 	"github.com/indrasvat/nidhi/internal/plugins/undo"
 	"github.com/indrasvat/nidhi/internal/ui/theme"
 )
@@ -142,6 +144,24 @@ func run() error {
 		_ = screenProviders.Register(searchPlugin, 100)
 		logger.Info("registered search plugin")
 	}
+
+	// Register filter plugin.
+	filterPlugin := filter.New()
+	if err := filterPlugin.Init(pctx); err != nil {
+		logger.Error("failed to init filter plugin", "error", err)
+	} else {
+		_ = keyHandlers.Register(filterPlugin, 90)
+		logger.Info("registered filter plugin")
+	}
+
+	// Register stale detection plugin.
+	stalePlugin := stale.New()
+	if err := stalePlugin.Init(pctx); err != nil {
+		logger.Error("failed to init stale plugin", "error", err)
+	} else {
+		logger.Info("registered stale detection plugin")
+	}
+	_ = stalePlugin // Passive plugin — no registry registration needed.
 
 	// Recover from any interrupted rename operations.
 	if rename.HasIncompleteOperation() {
