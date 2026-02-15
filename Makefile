@@ -20,7 +20,7 @@ GOLANGCI   := $(shell command -v golangci-lint 2>/dev/null)
 LEFTHOOK   := $(shell command -v lefthook 2>/dev/null)
 
 # ─── Targets ──────────────────────────────────────────────
-.PHONY: build test lint check ci e2e bench bench-short profile perf-test install install-tools install-hooks clean release coverage coverage-check release-check release-dry-run help
+.PHONY: build test lint check ci e2e bench bench-short profile perf-test install install-tools install-hooks clean release coverage coverage-check release-check release-dry-run smoke-test release-prep help
 
 ## build: Compile binary to bin/nidhi
 build:
@@ -138,6 +138,22 @@ release-check:
 ## release-dry-run: Dry-run goreleaser (build but don't publish)
 release-dry-run:
 	goreleaser release --snapshot --clean
+
+## smoke-test: Run release smoke test
+smoke-test: build
+	./scripts/smoke-test.sh
+
+## release-prep: Full release preparation (ci + e2e + bench + coverage + release check + smoke test)
+release-prep: ci e2e bench coverage-check release-check smoke-test
+	@echo ""
+	@echo "=== Release preparation complete ==="
+	@echo "All checks passed. Ready to tag and release."
+	@echo ""
+	@echo "Next steps:"
+	@echo "  1. git tag -a v0.1.0 -m 'Phase 1: First Light'"
+	@echo "  2. git push origin v0.1.0"
+	@echo "  3. Monitor: https://github.com/indrasvat/nidhi/actions"
+	@echo "  4. Verify: https://github.com/indrasvat/nidhi/releases"
 
 ## help: Show this help
 help:
