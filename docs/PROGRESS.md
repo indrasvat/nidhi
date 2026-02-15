@@ -89,6 +89,26 @@ Phase 1: Core (v0.1.0) — "First Light"
   - All components use theme.Theme interface, not hardcoded hex values
   - 420 tests passing, 0 lint issues, 88.8% coverage on components
 
+- Implemented tasks 010-012: LIST, PREVIEW, DETAIL screens
+  - screens/list.go: custom scrollable list with cursor navigation, responsive row height (1-line < 100 cols, 2-line >= 100 cols)
+  - Stash command message types: StashApplyMsg, StashPopMsg, StashDropMsg, StashRenameMsg, StashBranchMsg
+  - Navigation: j/k, g/G jump, Ctrl+D/U page scroll, visibleRows formula: (height+1)/(rh+1)
+  - Mode switching: Tab→PREVIEW, Enter→DETAIL, n→NEW_STASH, e→EXPORT, i→IMPORT
+  - CRUD dispatch: a/p/d/r/b dispatch tea.Cmd messages for apply/pop/drop/rename/branch
+  - Empty state rendering with theme colors
+  - screens/preview.go: split layout 40% list (top) + divider with file progress + 60% diff (bottom)
+  - Async diff loading via DiffLoadedMsg with stale response detection
+  - parseDiffFiles/extractFilename for per-file diff splitting
+  - File cycling (h/l), diff scroll (Ctrl+D/U), CRUD delegation to embedded ListScreen
+  - screens/detail.go: horizontal split with FileTreeModel (25% left) + DiffViewModel (75% right)
+  - Uses layout.ComputeSplit with DetailSplitRatio, collapses gracefully on narrow terminals
+  - Tab switches focus between tree/diff panes, Esc returns to previous mode
+  - j/k per-pane navigation, Enter expand/collapse tree groups, Ctrl+D/U page scroll
+  - inferFileStatus from diff content: new file → Added, deleted → Removed, rename → Renamed, else Modified
+  - selectFirstFile auto-advances past category headers on SetDiff
+  - No bubbles dependency — uses custom DiffViewModel and FileTreeModel from task 009
+  - 527 tests passing, 0 lint issues, 89.8% coverage on screens
+
 ## Task List
 
 | # | Task | Phase | Status | Depends On |
@@ -103,9 +123,9 @@ Phase 1: Core (v0.1.0) — "First Light"
 | 007 | Layout engine & chrome | P1 | DONE | 006, 003 |
 | 008 | Stash row renderer | P1 | DONE | 003, 007 |
 | 009 | Diff view & file tree | P1 | DONE | 003, 007 |
-| 010 | LIST screen | P1 | TODO | 006, 008, 007 |
-| 011 | PREVIEW screen | P1 | TODO | 010, 009, 004 |
-| 012 | DETAIL screen | P1 | TODO | 010, 009, 007 |
+| 010 | LIST screen | P1 | DONE | 006, 008, 007 |
+| 011 | PREVIEW screen | P1 | DONE | 010, 009, 004 |
+| 012 | DETAIL screen | P1 | DONE | 010, 009, 007 |
 | 013 | Stash CRUD operations | P1 | TODO | 001, 004 |
 | 014 | Phase 1 integration & E2E | P1 | TODO | 010-013 |
 | 015 | Conflict preview plugin | P2 | TODO | 013, 006 |

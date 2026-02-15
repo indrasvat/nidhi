@@ -142,3 +142,7 @@ UI Layer — BubbleTea v2 (screen router, layout engine, overlay manager, compon
 - For time-dependent tests, pass reference `time.Time` into test helpers — never call `time.Now()` independently inside helper functions.
 - File tree category colors per mockup: staged=SemanticGreen, working=SemanticYellow, untracked=SemanticCoral.
 - `strings.FieldsSeq` (Go 1.24+ iterator) is preferred over `strings.Fields` by golangci-lint.
+- `layout.ComputeSplit(totalSize, ratio)` properly handles narrow terminals by collapsing the secondary pane (returns SecondarySize=0, DividerSize=0).
+- Use `msg.Mod.Contains(tea.ModCtrl)` not `msg.Mod == tea.ModCtrl` for modifier checks (other modifiers may be set simultaneously).
+- `FileTreeModel.visibleItems()` always renders all 3 category headers (staged/working/untracked) even when empty. Phase 2 will add proper category distinction.
+- Staticcheck QF1006: loop conditions like `for { if cond { break } ... }` should be `for !cond { ... }`.
