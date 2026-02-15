@@ -20,7 +20,7 @@ GOLANGCI   := $(shell command -v golangci-lint 2>/dev/null)
 LEFTHOOK   := $(shell command -v lefthook 2>/dev/null)
 
 # ─── Targets ──────────────────────────────────────────────
-.PHONY: build test lint check ci e2e install install-tools install-hooks clean release coverage help
+.PHONY: build test lint check ci e2e bench bench-short profile perf-test install install-tools install-hooks clean release coverage help
 
 ## build: Compile binary to bin/nidhi
 build:
@@ -58,6 +58,25 @@ ifdef GOTESTSUM
 else
 	go test -race -v -count=1 ./internal/e2e/...
 endif
+
+## bench: Run performance benchmarks
+bench:
+	go test -bench=. -benchmem -timeout 600s ./internal/perf/...
+
+## bench-short: Run quick performance benchmarks
+bench-short:
+	go test -bench=. -benchmem -benchtime=1s -timeout 120s ./internal/perf/...
+
+## profile: Run benchmarks with CPU and memory profiling
+profile:
+	mkdir -p profiles
+	go test -bench=BenchmarkStartup -benchmem -cpuprofile=profiles/cpu-startup.prof -memprofile=profiles/mem-startup.prof -timeout 120s ./internal/perf/...
+	go test -bench=BenchmarkCursorMove -benchmem -cpuprofile=profiles/cpu-cursor.prof -memprofile=profiles/mem-cursor.prof -timeout 120s ./internal/perf/...
+	@echo "Profiles written to profiles/. View with: go tool pprof profiles/<file>.prof"
+
+## perf-test: Run performance validation tests (latency and memory assertions)
+perf-test:
+	go test -v -timeout 600s -count=1 -run 'Test(Startup|OperationLatency|Memory)_' ./internal/perf/...
 
 ## install: Install binary to ~/.local/bin
 install: build

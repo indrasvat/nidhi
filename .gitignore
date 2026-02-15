@@ -42,6 +42,7 @@ __debug_bin*
 .local/
 dist/
 bin/
+profiles/
 
 # Root binary
 /nidhi

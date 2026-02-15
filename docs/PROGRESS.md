@@ -301,6 +301,25 @@ Phase 5: Polish (v1.0.0) — "Release"
   - Fixed buildPluginStashes to set RawMessage (needed for reorder plugin store operations)
   - 916 total tests passing, 0 lint issues
 
+- Implemented task 027: Performance validation and NFR benchmarks
+  - internal/perf/helpers_test.go: shared benchmark fixtures (benchRepo, testRepo, generateGoFile, runGit)
+  - internal/perf/startup_test.go: startup benchmarks (0/20/100 stashes), timing assertion tests, --debug flag test
+  - internal/perf/operation_test.go: operation latency benchmarks and tests
+    - Cursor move + render: 587us (target < 1ms) PASS
+    - LIST render 50 stashes: 624us (target < 100ms) PASS
+    - Diff load: ~7ms (target < 200ms) PASS
+    - Apply: 151ms (target < 500ms) PASS
+    - Rename: 13ms (target < 100ms) PASS
+    - Search index build 50 stashes: 971ms (target < 2s) PASS
+  - internal/perf/memory_test.go: memory usage validation
+    - 50 stashes: 168KB heap (target < 40MB) PASS
+    - LRU cache: respects 10-entry limit PASS
+    - No leak after 100 operations: 0B growth PASS
+  - internal/perf/visual_test.go: iterm2-driver visual responsiveness (behind NIDHI_VISUAL_TEST=1 env flag)
+  - Makefile: added bench, bench-short, profile, perf-test targets
+  - docs/profiling-results.md: documented all measurements with pass/fail
+  - 933 total tests passing, 0 lint issues
+
 ## Task List
 
 | # | Task | Phase | Status | Depends On |
@@ -332,7 +351,7 @@ Phase 5: Polish (v1.0.0) — "Release"
 | 024 | Help overlay & mouse support | P5 | DONE | 006, 007 |
 | 025 | Config file & polish | P5 | DONE | 002, 006 |
 | 026 | Comprehensive E2E tests | Final | DONE | 000-024 |
-| 027 | Performance validation | Final | TODO | 026 |
+| 027 | Performance validation | Final | DONE | 026 |
 | 028 | CI/CD & GitHub Actions | Final | TODO | 027 |
 | 029 | Documentation & README | Final | TODO | 026 |
 | 030 | Homebrew tap & release | Final | TODO | 028, 029 |
