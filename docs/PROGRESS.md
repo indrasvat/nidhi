@@ -109,6 +109,18 @@ Phase 1: Core (v0.1.0) — "First Light"
   - No bubbles dependency — uses custom DiffViewModel and FileTreeModel from task 009
   - 527 tests passing, 0 lint issues, 89.8% coverage on screens
 
+- Implemented task 013: stash CRUD operations
+  - internal/git/operations.go: StashOps struct with Apply, Pop, Drop, Push, BranchFromStash, ClearAll, RestoreStash
+  - All operations use RunExitCode for proper error detection (Run() swallows ExitError)
+  - SHA captured before destructive ops (Pop, Drop, ClearAll) for undo support
+  - Push detects "No local changes to save" (git exits 0 even with nothing to stash)
+  - ClearAll captures all SHAs+messages before clearing for bulk undo
+  - RestoreStash uses `git stash store` for undo recovery
+  - PushOptions supports: Message, KeepIndex, IncludeUntracked, Staged, Pathspecs
+  - Cache invalidated on all mutating operations; Apply skips invalidation (list unchanged)
+  - 18 integration tests in operations_test.go: real git repos, no mocks
+  - 545 tests passing, 0 lint issues, 82.9% coverage on git package
+
 ## Task List
 
 | # | Task | Phase | Status | Depends On |
@@ -126,7 +138,7 @@ Phase 1: Core (v0.1.0) — "First Light"
 | 010 | LIST screen | P1 | DONE | 006, 008, 007 |
 | 011 | PREVIEW screen | P1 | DONE | 010, 009, 004 |
 | 012 | DETAIL screen | P1 | DONE | 010, 009, 007 |
-| 013 | Stash CRUD operations | P1 | TODO | 001, 004 |
+| 013 | Stash CRUD operations | P1 | DONE | 001, 004 |
 | 014 | Phase 1 integration & E2E | P1 | TODO | 010-013 |
 | 015 | Conflict preview plugin | P2 | TODO | 013, 006 |
 | 016 | Undo plugin | P2 | TODO | 013, 007 |

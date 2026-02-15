@@ -120,6 +120,11 @@ UI Layer — BubbleTea v2 (screen router, layout engine, overlay manager, compon
 ### Git Operations
 - `git stash export/import` requires Git ≥ 2.51. Feature-gate at runtime.
 - `git merge-tree --write-tree` requires Git ≥ 2.38. Exit code 0 = clean, 1 = conflicts.
+- `DefaultRunner.Run()` swallows `exec.ExitError` — returns `(stdout, nil)` for non-zero exits. Always use `RunExitCode()` for operations that must detect failure.
+- `git stash push` returns exit 0 even when there are no local changes. Detect via output containing "No local changes to save".
+- `git stash store -m <msg> <sha>` re-stores a previously dropped stash. Used for undo recovery.
+- `strings.SplitSeq` (Go 1.24+ iterator) is preferred by golangci-lint stringsseq rule over `strings.Split` in range loops.
+- `fmt.Appendf(nil, ...)` is preferred by golangci-lint fmtappendf rule over `[]byte(fmt.Sprintf(...))`.
 
 ### Go Patterns
 - Files ending in `_test.go` are ONLY compiled by `go test`, not `go run` or `go build`. Name throwaway verification files differently.
