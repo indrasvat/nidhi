@@ -1,0 +1,194 @@
+.\" nidhi(1) man page
+.TH NIDHI 1 "February 2026" "nidhi v0.1.0" "User Commands"
+.SH NAME
+nidhi \- purpose-built TUI for git stash mastery
+.SH SYNOPSIS
+.B nidhi
+[\fIOPTIONS\fR]
+.SH DESCRIPTION
+.B nidhi
+is a terminal user interface for managing Git stashes. It provides a
+three-tier progressive disclosure interface (LIST, PREVIEW, DETAIL) with
+fuzzy search, conflict preview, export/import, undo, rename, reorder,
+and branch filtering capabilities.
+.PP
+nidhi turns
+.B git stash
+from a write-and-forget black hole into a visible, searchable, portable
+treasure vault.
+.SH OPTIONS
+.TP
+.BR \-h ", " \-\-help
+Show help message and exit.
+.TP
+.BR \-v ", " \-\-version
+Show version information and exit.
+.TP
+.BI \-\-log\-level " LEVEL"
+Set log level. Valid values: off, error, warn, info, debug. Default: off.
+Logs are written to ~/.local/state/nidhi/nidhi.log.
+.TP
+.B \-\-trace\-git
+Log all git commands with arguments, exit code, and duration.
+.TP
+.B \-\-debug
+Print startup timing breakdown and exit. Useful for performance diagnostics.
+.TP
+.B \-\-no\-color
+Disable all colors. Equivalent to setting NO_COLOR=1.
+.TP
+.B \-\-no\-animation
+Disable all animations. Equivalent to setting REDUCE_MOTION=1.
+.TP
+.BI \-\-icons " SET"
+Icon set to use. Valid values: auto (default), nerd (Nerd Fonts), ascii.
+.TP
+.BR \-C ", " \-\-directory " \fIPATH\fR"
+Run as if nidhi was started in the given directory.
+.SH KEYBOARD NAVIGATION
+.SS Global
+.TP
+.B q, Ctrl+c
+Quit nidhi.
+.TP
+.B ?
+Toggle help overlay.
+.TP
+.B Esc
+Go back / close overlay.
+.SS LIST Mode
+.TP
+.B j/k
+Move cursor down/up.
+.TP
+.B g/G
+Jump to first/last stash.
+.TP
+.B Ctrl+d/Ctrl+u
+Page down/up.
+.TP
+.B a
+Apply selected stash.
+.TP
+.B p
+Pop selected stash.
+.TP
+.B d
+Drop selected stash (with undo toast).
+.TP
+.B n
+Create new stash.
+.TP
+.B r
+Rename selected stash.
+.TP
+.B /
+Open search.
+.TP
+.B Tab
+Toggle PREVIEW mode.
+.TP
+.B Enter
+Enter DETAIL mode.
+.TP
+.B z
+Undo last drop.
+.TP
+.B J/K
+Move stash down/up (reorder).
+.TP
+.B e/i
+Export/import stashes.
+.TP
+.B fb/fs/fc
+Filter by branch / stale / clear filters.
+.SS PREVIEW Mode
+.TP
+.B h/l
+Cycle through changed files in the diff preview.
+.TP
+.B Tab
+Toggle back to LIST mode.
+.SS DETAIL Mode
+.TP
+.B Tab
+Switch focus between file tree and diff viewport.
+.SH CONFIGURATION
+nidhi reads configuration from (in priority order):
+.IP 1. 4
+CLI flags
+.IP 2. 4
+Environment variables (NIDHI_*)
+.IP 3. 4
+Git config (nidhi.* section)
+.IP 4. 4
+Config file (~/.config/nidhi/config.toml)
+.IP 5. 4
+Built-in defaults
+.SH ENVIRONMENT
+.TP
+.B NIDHI_STALE_DAYS
+Stale threshold in days (default: 14).
+.TP
+.B NIDHI_ICONS
+Icon set: auto, nerd, ascii.
+.TP
+.B NIDHI_LOG_LEVEL
+Log level: off, error, warn, info, debug.
+.TP
+.B NO_COLOR
+If set, disables all color output.
+.TP
+.B REDUCE_MOTION
+If set, disables all animations.
+.TP
+.B NERD_FONTS
+If set to 1, forces Nerd Font icons.
+.SH FILES
+.TP
+.I ~/.config/nidhi/config.toml
+User configuration file.
+.TP
+.I ~/.local/state/nidhi/nidhi.log
+Debug log file (when --log-level is set).
+.TP
+.I ~/.local/state/nidhi/reorder-journal.json
+Reorder operation journal for crash recovery.
+.SH GIT VERSION REQUIREMENTS
+.TP
+.B Git >= 2.22
+Core features (stash push, branch --show-current).
+.TP
+.B Git >= 2.38
+Conflict preview via merge-tree --write-tree.
+.TP
+.B Git >= 2.51
+Export/import stashes.
+.SH EXIT STATUS
+.TP
+.B 0
+Normal exit.
+.TP
+.B 1
+Error (not a git repo, git not found, etc.).
+.SH EXAMPLES
+.TP
+Launch nidhi in the current directory:
+.B nidhi
+.TP
+Launch in a specific repository:
+.B nidhi -C /path/to/repo
+.TP
+Launch with debug timing:
+.B nidhi --debug
+.TP
+Launch with ASCII icons and no color:
+.B nidhi --icons ascii --no-color
+.SH BUGS
+Report bugs at https://github.com/indrasvat/nidhi/issues.
+.SH AUTHOR
+indrasvat <https://github.com/indrasvat>
+.SH SEE ALSO
+.BR git-stash (1),
+.BR git (1),
+.BR lazygit (1)

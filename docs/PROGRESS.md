@@ -42,7 +42,7 @@ Phase 5: Polish (v1.0.0) — "Release"
 - [x] Mouse support (click, scroll)
 - [ ] Custom themes (theme file format)
 - [x] Comprehensive tests (>70% coverage)
-- [ ] Documentation (README, man page)
+- [x] Documentation (README, man page)
 - [ ] Homebrew tap
 
 ## Session Log
@@ -328,6 +328,15 @@ Phase 5: Polish (v1.0.0) — "Release"
   - Makefile: added coverage, coverage-check, release-check, release-dry-run targets
   - goreleaser check validates config successfully
 
+- Implemented task 029: Documentation & README
+  - README.md: 256 lines — hero section, badges (CI, coverage, Go version, license, release), features, requirements, installation (Homebrew, go install, GitHub Releases, source), quick start, keybind tables (navigation, actions, search/filter, power user), configuration (TOML, env vars, git config, CLI flags with priority order), Agni theme description, architecture overview, contributing, MIT license
+  - LICENSE: MIT license, 2026, indrasvat
+  - docs/man/nidhi.1: roff man page with NAME, SYNOPSIS, DESCRIPTION, OPTIONS, KEYBOARD NAVIGATION (global, LIST, PREVIEW, DETAIL), CONFIGURATION, ENVIRONMENT, FILES, GIT VERSION REQUIREMENTS, EXIT STATUS, EXAMPLES, BUGS, AUTHOR, SEE ALSO
+  - docs/screenshots/generate.sh: executable script creating demo repo with 5 diverse stashes, captures LIST/PREVIEW/DETAIL/SEARCH/HELP screenshots via iterm2-driver
+  - docs/screenshots/ and docs/man/ directories created
+  - All verifications pass: README sections, LICENSE content, man page renders via mandoc
+  - 933 total tests passing, 0 lint issues
+
 ## Task List
 
 | # | Task | Phase | Status | Depends On |
@@ -361,5 +370,5 @@ Phase 5: Polish (v1.0.0) — "Release"
 | 026 | Comprehensive E2E tests | Final | DONE | 000-024 |
 | 027 | Performance validation | Final | DONE | 026 |
 | 028 | CI/CD & GitHub Actions | Final | DONE | 027 |
-| 029 | Documentation & README | Final | TODO | 026 |
+| 029 | Documentation & README | Final | DONE | 026 |
 | 030 | Homebrew tap & release | Final | TODO | 028, 029 |
