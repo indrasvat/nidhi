@@ -4,9 +4,9 @@
 
 ## Current Phase
 
-Phase 1: Core (v0.1.0) — "First Light"
+Phase 2: Safety Net (v0.2.0) — "No Fear"
 
-## Status: 🟢 Phase 1 Complete
+## Status: 🟡 Phase 2 In Progress
 
 ### Milestone Targets (from PRD §18)
 
@@ -20,7 +20,7 @@ Phase 1: Core (v0.1.0) — "First Light"
 - [x] `--help`, `--version` CLI basics
 
 #### Phase 2: Safety Net (v0.2.0) — "No Fear"
-- [ ] Conflict preview plugin (merge-tree dry-run, conflict screen)
+- [x] Conflict preview plugin (merge-tree dry-run, conflict screen)
 - [ ] Undo plugin (toast, z-key recovery, reflog fallback)
 - [ ] Rename plugin (inline rename with drop+store)
 - [ ] New stash screen (message-first, scope toggles, keep-index)
@@ -130,6 +130,19 @@ Phase 1: Core (v0.1.0) — "First Light"
   - Phase 1 ("First Light") is now COMPLETE — 559 tests passing, 0 lint issues
   - Performance: 19ms avg for 20 stashes, 24ms for 100 stashes (budget: <100ms / <300ms)
 
+- Implemented task 015: Conflict preview plugin (merge-tree dry-run, conflict screen)
+  - internal/git/mergetree.go: RunMergeTree (git merge-tree --write-tree), ParseMergeTreeOutput, CheckUntrackedCollisions
+  - Uses ls-tree (not diff-tree) for rootless untracked commit detection
+  - internal/plugins/conflict/conflict.go: Plugin implementing StashHook + ScreenProvider
+  - BeforeApply: runs merge-tree dry-run, detects conflicts + untracked collisions
+  - Git < 2.38 graceful degradation with info toast (FR-10.7)
+  - Fail-open: on merge-tree error, proceed with apply (don't block user)
+  - internal/plugins/conflict/screen.go: theme-aware conflict screen with icons, per-file status
+  - Plugin registered in main.go (not loader.go, to avoid circular imports)
+  - core/events.go: added InfoToastMsg, ErrorMsg, StashMutatedMsg, PromptBranchNameMsg
+  - 22 conflict plugin tests (3 integration, 19 unit), 78.6% coverage
+  - 600 total tests passing, 0 lint issues
+
 ## Task List
 
 | # | Task | Phase | Status | Depends On |
@@ -149,7 +162,7 @@ Phase 1: Core (v0.1.0) — "First Light"
 | 012 | DETAIL screen | P1 | DONE | 010, 009, 007 |
 | 013 | Stash CRUD operations | P1 | DONE | 001, 004 |
 | 014 | Phase 1 integration & E2E | P1 | DONE | 010-013 |
-| 015 | Conflict preview plugin | P2 | TODO | 013, 006 |
+| 015 | Conflict preview plugin | P2 | DONE | 013, 006 |
 | 016 | Undo plugin | P2 | TODO | 013, 007 |
 | 017 | Rename plugin | P2 | TODO | 013, 008 |
 | 018 | New stash screen | P2 | TODO | 013, 006 |

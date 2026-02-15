@@ -119,7 +119,8 @@ UI Layer — BubbleTea v2 (screen router, layout engine, overlay manager, compon
 
 ### Git Operations
 - `git stash export/import` requires Git ≥ 2.51. Feature-gate at runtime.
-- `git merge-tree --write-tree` requires Git ≥ 2.38. Exit code 0 = clean, 1 = conflicts.
+- `git merge-tree --write-tree` requires Git ≥ 2.38. Exit code 0 = clean, 1 = conflicts. Output: tree SHA on line 1, then Auto-merging/CONFLICT messages.
+- Stash untracked files (3rd parent): use `ls-tree --name-only -r stash^3` (NOT `diff-tree`) because the untracked commit is rootless and `diff-tree` produces no output for commits without parents.
 - `DefaultRunner.Run()` swallows `exec.ExitError` — returns `(stdout, nil)` for non-zero exits. Always use `RunExitCode()` for operations that must detect failure.
 - `git stash push` returns exit 0 even when there are no local changes. Detect via output containing "No local changes to save".
 - `git stash store -m <msg> <sha>` re-stores a previously dropped stash. Used for undo recovery.
@@ -135,6 +136,8 @@ UI Layer — BubbleTea v2 (screen router, layout engine, overlay manager, compon
 - `plugin` package is the canonical source for domain types (Stash, AppState, GitVersion, interfaces).
 - `git` package has its own parallel types that must be bridged via adapters in `cmd/nidhi/main.go`.
 - `core` package uses type aliases (`type AppState = plugin.AppState`) to avoid import indirection.
+- Plugin registration happens in `cmd/nidhi/main.go`, not `plugin/loader.go`, to avoid circular imports (plugins/ → plugin/ → plugins/ cycle).
+- `plugin.GitRunner` and `git.GitRunner` have identical methods — Go structural typing allows passing either where the other is expected.
 
 ### UI Components
 - Mockup badge colors: LIST=gold, PREVIEW=aqua, DETAIL=blue, SEARCH=purple, EXPORT=orange, NEW=green, CONFLICT=yellow, HELP=dimmed.
