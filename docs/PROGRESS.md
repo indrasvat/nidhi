@@ -346,6 +346,26 @@ Phase 5: Polish (v1.0.0) — "Release"
   - Binary: 4MB, all 933 tests passing, 0 lint issues
   - **ALL 31 TASKS (000-030) COMPLETE — PROJECT READY FOR v0.1.0 RELEASE**
 
+- Fixed tasks 031-033: Critical TUI bugs discovered via iterm2-driver E2E visual testing
+  - Task 031 (P0): Cursor navigation — j/k/g/G keys now properly move the ▸ indicator
+    - Root cause: core/app.go handleListKeys() caught j/k/g/G and updated state.Cursor, but ListScreen
+      used its own l.cursor which never received the updates. Keys consumed by core, never forwarded to UI.
+    - Fix: Removed j/k/g/G from core's handleListKeys/handlePreviewKeys. Core now only handles mode switches
+      (Tab/Enter via pushMode). All other keys delegated to UI via m.UI.HandleMessage(), then to plugin handlers.
+    - ListScreen.handleKey() already had proper moveCursor/clampCursor/scroll logic — just needed to receive events.
+  - Task 032 (P0): Terminal background color bleed — empty cells now match Agni bg.deep
+    - Root cause: lipgloss.Background() only applies to explicitly rendered characters. Empty terminal cells
+      used the terminal's default background, creating a two-tone appearance.
+    - Fix: Set tea.View.BackgroundColor = lipgloss.Color("#07090E") — BubbleTea v2 handles OSC 11 natively.
+      Also fixed list padding to use strings.Repeat(" ", width) instead of bare newlines.
+  - Task 033 (P0): Help overlay modal — ? now shows centered keybind reference modal
+    - Root cause: pushMode(ModeHelp) was called but nobody set help.visible = true. RenderWithDimmedBackground
+      checked h.visible and returned bgContent unchanged, so the screen looked identical to LIST view.
+    - Fix: Added Show()/Hide() methods to HelpOverlay. OnModeChange now calls Show when entering ModeHelp,
+      Hide when leaving. Also made popMode() call UI.OnModeChange so Esc properly triggers Hide.
+  - All fixes verified with iterm2-driver E2E tests: 10/10 tests pass
+  - 933 tests still passing, 0 lint issues
+
 ## Task List
 
 | # | Task | Phase | Status | Depends On |
@@ -381,3 +401,6 @@ Phase 5: Polish (v1.0.0) — "Release"
 | 028 | CI/CD & GitHub Actions | Final | DONE | 027 |
 | 029 | Documentation & README | Final | DONE | 026 |
 | 030 | Homebrew tap & release | Final | DONE | 028, 029 |
+| 031 | Fix cursor navigation & key routing | Bugfix | DONE | 006, 010 |
+| 032 | Fix terminal background color | Bugfix | DONE | — |
+| 033 | Fix help overlay modal | Bugfix | DONE | 024 |
