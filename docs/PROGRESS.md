@@ -251,6 +251,20 @@ Phase 5: Polish (v1.0.0) — "Release"
   - 817 total tests passing, 0 lint issues, 78.1% sync plugin coverage
   - **Phase 4 ("Across Machines") is now COMPLETE**
 
+- Implemented task 024: Help overlay with Canvas compositing and mouse support
+  - internal/ui/screens/help.go: HelpOverlay with all keybind categories from PRD §11.2
+  - 5 categories: Global, Navigation, Actions, Search & Filter, Export & Import
+  - LipGloss Canvas compositing: dimmed background + z-layered overlay via NewCanvas/NewLayer
+  - Toggle on/off with `?`, scrollable content, adapts to terminal dimensions
+  - RenderWithDimmedBackground for modal compositing over existing screen content
+  - internal/ui/mouse/mouse.go: Mouse Handler for additive mouse support (PRD §11.3)
+  - Click row → select stash, scroll wheel up/down, click chip → toggle filter, click checkbox → toggle selection
+  - Status bar and footer clicks ignored (no-op)
+  - Configurable row height (compact vs default), chip/checkbox regions
+  - 10 help tests (categories, keybindings, toggle, scroll, adapt size, dimmed bg)
+  - 8 mouse tests (row click, compact mode, scroll, chip click, checkbox click, status bar, footer)
+  - 839 total tests passing, 0 lint issues, 100% mouse coverage, 79.7% screens coverage
+
 ## Task List
 
 | # | Task | Phase | Status | Depends On |
@@ -279,7 +293,7 @@ Phase 5: Polish (v1.0.0) — "Release"
 | 021 | Filter & stale plugins | P3 | DONE | 006, 004 |
 | 022 | Reorder plugin | P3 | DONE | 013, 017 |
 | 023 | Export/import plugin | P4 | DONE | 006, 001 |
-| 024 | Help overlay & mouse support | P5 | TODO | 006, 007 |
+| 024 | Help overlay & mouse support | P5 | DONE | 006, 007 |
 | 025 | Config file & polish | P5 | TODO | 002, 006 |
 | 026 | Comprehensive E2E tests | Final | TODO | 000-024 |
 | 027 | Performance validation | Final | TODO | 026 |
