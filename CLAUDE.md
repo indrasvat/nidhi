@@ -110,12 +110,14 @@ UI Layer — BubbleTea v2 (screen router, layout engine, overlay manager, compon
 ### BubbleTea v2
 - `tea.View.Content` is `tea.Layer` (interface), not a string. Wrap with `tea.NewLayer()`.
 - KeyPressMsg uses int32 Code field, not string. Use tea package key constants.
+- Arrow keys: use `tea.KeyUp`, `tea.KeyDown` constants alongside `msg.Text == "j"` / `msg.Text == "k"`. Always add both in the same switch case to ensure full keyboard support.
 
 ### LipGloss v2
 - `AdaptiveColor` is NOT in main lipgloss/v2 package. Moved to `lipgloss/v2/compat`.
 - RESOLVED: Use `charm.land/lipgloss/v2` import path (NOT `github.com/charmbracelet/lipgloss/v2`). The tagged versions (beta.3) declare old module path, but Bubbles v2 RC1 pulls in a pseudo-version with `charm.land/` module path. Use `go get charm.land/lipgloss/v2@v2.0.0-beta.3.0.20251106192539-4b304240aab7` for exact version.
 - `cellbuf` and `ansi` packages must be version-matched. Upgrading `ansi` without upgrading `cellbuf` breaks the build (API signature changes: `Italic()` → `Italic(bool)`).
 - `lipgloss.Color` is a FUNCTION (`func(s string) color.Color`), NOT a type. Cannot use in type assertions or as return types. Return `color.Color` instead.
+- `lipgloss.CompleteColor` does NOT exist in v2. Use `[]color.Color` with `lipgloss.Color("#hex")` for gradient arrays. No adaptive/complete color wrappers — colorprofile handles downsampling.
 
 ### Git Operations
 - `git stash export/import` requires Git ≥ 2.51. Feature-gate at runtime.
@@ -139,7 +141,9 @@ UI Layer — BubbleTea v2 (screen router, layout engine, overlay manager, compon
 - `core` package uses type aliases (`type AppState = plugin.AppState`) to avoid import indirection.
 - **UIRenderer pattern**: `core` cannot import `ui/screens` (circular dependency). The `core.UIRenderer` interface is injected from `cmd/nidhi/main.go` which has access to all packages. This wires real ListScreen/PreviewScreen/DetailScreen/HelpOverlay/StatusBar/Footer/Toast into the core model. Without this, the TUI renders placeholder text.
 - **Mode change side effects**: Both `pushMode()` and `popMode()` call `UIRenderer.OnModeChange()` and return `tea.Cmd`. Used for diff loading (PREVIEW/DETAIL) and help overlay show/hide.
-- **Key delegation**: Core handles only mode-switch keys (Tab/Enter via pushMode, Esc via popMode) and global keys (q, ?, Ctrl+C). All other keys (j/k/g/G, CRUD, search) delegate to `m.UI.HandleMessage()` which routes to the active screen, then falls through to plugin key handlers.
+- **Key delegation**: Core handles only mode-switch keys (Tab/Enter via pushMode, Esc via popMode) and global keys (q, ?, Ctrl+C). All other keys (j/k/g/G, CRUD, search) delegate to `m.UI.HandleMessage()` which routes to the active screen, then falls through to plugin key handlers. **Exception**: ModeDetail delegates ALL keys to UI (including Tab for tree/diff focus toggle) — core does NOT intercept Tab in Detail.
+- **Dead key handler trap**: If both core and a screen handle the same key (e.g., Esc in both core and detail.go), the core handler runs first and the screen handler is dead code. When core behavior changes, dead handlers mask bugs. Audit for duplicate key handling when modifying routing.
+- **Every mode must be routed**: Core's `handleKeyPress()` switch must have a case for every mode. Missing cases fall through to plugin handlers only, leaving screen-level keys (j/k/Tab) unreachable.
 - **Always verify TUI renders real content** — unit tests can pass while the top-level model still returns placeholder strings if the rendering pipeline isn't wired end-to-end. Use `scripts/setup-demo.sh` + iTerm2 driver to verify.
 - **tea.View.BackgroundColor** (`color.Color`): Set to theme bg.deep color to fill ALL empty terminal cells via OSC 11. BubbleTea v2 handles this natively — no termenv needed.
 - Plugin registration happens in `cmd/nidhi/main.go`, not `plugin/loader.go`, to avoid circular imports (plugins/ → plugin/ → plugins/ cycle).
@@ -147,6 +151,8 @@ UI Layer — BubbleTea v2 (screen router, layout engine, overlay manager, compon
 - Rename plugin uses `~/.local/state/nidhi/reorder-journal.json` (for rename's drop+re-store). Reorder plugin uses `~/.local/state/nidhi/move-journal.json` to avoid collision.
 - Import `sync` package as `pluginsync` in `main.go` to avoid collision with Go's built-in `sync` package.
 - `plugin.NewPluginContext()` requires all 7 params non-nil (including Theme). Tests must pass a mock theme, not nil.
+- **Interface extension cascade**: Adding a method to `core.UIRenderer` requires updating ALL implementations — `uiRenderer` in main.go, `mockUIRenderer` in app_test.go, and any test helpers. Compile will catch missing methods but only if tests are run.
+- **Welcome screen pattern**: Model-level boolean guard (`m.Welcome`) in `handleKeyPress()` intercepts ALL keys before mode routing. Only Enter (dismiss), q, Ctrl+C pass through. View() renders welcome when `m.Welcome && m.ready`.
 
 ### UI Components
 - Mockup badge colors: LIST=gold, PREVIEW=aqua, DETAIL=blue, SEARCH=purple, EXPORT=orange, NEW=green, CONFLICT=yellow, HELP=dimmed.
@@ -165,3 +171,10 @@ UI Layer — BubbleTea v2 (screen router, layout engine, overlay manager, compon
 - Staticcheck QF1006: loop conditions like `for { if cond { break } ... }` should be `for !cond { ... }`.
 - **Singleton screens**: Screens (ListScreen, PreviewScreen, DetailScreen) are created once in main.go and reused across mode transitions. Mutable state like `focused`, cursor positions persists — must be explicitly reset via OnModeChange on mode entry (e.g., `detail.ResetFocus()`).
 - **iTerm2 screen buffer includes scrollback**: `async_get_screen_contents()` returns the full buffer, not just visible lines. Strip trailing blank lines before checking footer content.
+
+### iTerm2 E2E Testing Patterns
+- **Polling over sleeps**: Use `wait_for(session, keyword, timeout)` that polls every 250ms instead of `asyncio.sleep(N)`. Hardcoded sleeps are brittle across machines.
+- **Content-change assertions over keyword presence**: After pressing a key, assert `before != after` (screen actually changed), not just `"keyword" in screen`. Keyword checks miss broken key routing.
+- **Scrollback buffer**: `async_get_screen_contents()` returns ALL lines including empty scrollback. Footer checks must strip trailing blank lines first.
+- **`setup-demo.sh` uses `exec`**: The script ends with `exec "$BIN"`, replacing the shell process with nidhi. After launch, the iTerm2 session IS the TUI — no shell prompt returns.
+- **Welcome screen handling**: Tests must wait for "Press Enter" or "LIST", dismiss welcome if present, then wait for "LIST" badge before starting interaction tests.
