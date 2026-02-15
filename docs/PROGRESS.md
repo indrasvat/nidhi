@@ -69,6 +69,26 @@ Phase 1: Core (v0.1.0) — "First Light"
 - iTerm2 visual testing confirmed: TUI launches, empty state renders, j/k/? keys work, q quits cleanly
 - 287 tests passing, 0 lint issues, ~80%+ coverage across packages
 
+- Implemented task 007: layout engine, status bar, footer, toast components
+  - layout/responsive.go: three-tier breakpoints (minimal 80x24, standard 120x40, large 200x60), column collapse rules
+  - layout/split.go: configurable split panes — PREVIEW (40/60 vertical), DETAIL (25/75 horizontal) with minimum enforcement
+  - layout/layout.go: three-band chrome (status bar + content + footer), JoinVertical/JoinHorizontal composition, dimension helpers
+  - components/statusbar.go: renders ◆ mark, repo name, ⎇ branch, stash count, git version — matched to mockup
+  - components/footer.go: mode-specific keybind hints with color-coded mode badge — PREVIEW=aqua, DETAIL=blue per mockup
+  - components/toast.go: timed toast with 3 classes (info=green 5s, error=red 5s, undo=blue 30s), auto-dismiss via tea.Tick
+  - All components use theme.Theme interface, not hardcoded hex values
+  - 353 tests passing, 0 lint issues, 84% coverage on components, 72% on layout
+
+- Implemented tasks 008-009: stash row renderer, diff view, file tree, filter chips
+  - components/stashrow.go: two-line responsive row — line 1: cursor/index/SHA/message/age, line 2 (>=100 cols): branch/diffstat/filecount/tags
+  - Progressive dimming via blendColor() with square-root curve capped at 60%
+  - Inline rename support with block cursor and "was:" hint
+  - components/diffview.go: unified diff parser with line-number gutter, scrollable viewport, theme-aware syntax coloring
+  - components/filetree.go: file tree grouped by staged/working/untracked, collapsible categories, category-specific colors (green/yellow/coral per mockup)
+  - components/filterchip.go: toggle chip group for search scopes — exclusive "All" behavior, auto-reactivation
+  - All components use theme.Theme interface, not hardcoded hex values
+  - 420 tests passing, 0 lint issues, 88.8% coverage on components
+
 ## Task List
 
 | # | Task | Phase | Status | Depends On |
@@ -80,9 +100,9 @@ Phase 1: Core (v0.1.0) — "First Light"
 | 004 | Stash parser & cache | P1 | DONE | 001 |
 | 005 | Plugin interfaces & registry | P1 | DONE | 001, 002 |
 | 006 | Core BubbleTea model & mode mgmt | P1 | DONE | 005, 004, 003 |
-| 007 | Layout engine & chrome | P1 | TODO | 006, 003 |
-| 008 | Stash row renderer | P1 | TODO | 003, 007 |
-| 009 | Diff view & file tree | P1 | TODO | 003, 007 |
+| 007 | Layout engine & chrome | P1 | DONE | 006, 003 |
+| 008 | Stash row renderer | P1 | DONE | 003, 007 |
+| 009 | Diff view & file tree | P1 | DONE | 003, 007 |
 | 010 | LIST screen | P1 | TODO | 006, 008, 007 |
 | 011 | PREVIEW screen | P1 | TODO | 010, 009, 004 |
 | 012 | DETAIL screen | P1 | TODO | 010, 009, 007 |

@@ -115,6 +115,7 @@ UI Layer — BubbleTea v2 (screen router, layout engine, overlay manager, compon
 - `AdaptiveColor` is NOT in main lipgloss/v2 package. Moved to `lipgloss/v2/compat`.
 - RESOLVED: Use `charm.land/lipgloss/v2` import path (NOT `github.com/charmbracelet/lipgloss/v2`). The tagged versions (beta.3) declare old module path, but Bubbles v2 RC1 pulls in a pseudo-version with `charm.land/` module path. Use `go get charm.land/lipgloss/v2@v2.0.0-beta.3.0.20251106192539-4b304240aab7` for exact version.
 - `cellbuf` and `ansi` packages must be version-matched. Upgrading `ansi` without upgrading `cellbuf` breaks the build (API signature changes: `Italic()` → `Italic(bool)`).
+- `lipgloss.Color` is a FUNCTION (`func(s string) color.Color`), NOT a type. Cannot use in type assertions or as return types. Return `color.Color` instead.
 
 ### Git Operations
 - `git stash export/import` requires Git ≥ 2.51. Feature-gate at runtime.
@@ -129,3 +130,15 @@ UI Layer — BubbleTea v2 (screen router, layout engine, overlay manager, compon
 - `plugin` package is the canonical source for domain types (Stash, AppState, GitVersion, interfaces).
 - `git` package has its own parallel types that must be bridged via adapters in `cmd/nidhi/main.go`.
 - `core` package uses type aliases (`type AppState = plugin.AppState`) to avoid import indirection.
+
+### UI Components
+- Mockup badge colors: LIST=gold, PREVIEW=aqua, DETAIL=blue, SEARCH=purple, EXPORT=orange, NEW=green, CONFLICT=yellow, HELP=dimmed.
+- Mockup toast classes: info=green (.toast-ok), error=red, undo=BLUE (.toast-undo) — NOT yellow.
+- Status bar shows repo name (not "nidhi"), uses ◆ mark, ⎇ branch prefix.
+- All UI components should accept `theme.Theme` interface, not hardcoded hex strings.
+- Use `styledFgBg(fg, bg color.Color) lipgloss.Style` helper for repeated fg+bg style patterns.
+- `color.Color` interface method `RGBA()` returns pre-multiplied values 0-65535. Shift `>>8` to get 0-255 range for blending.
+- `strings.Split("", "\n")` returns `[""]` (1 element), not `[]`. Always guard empty-string parsing with early return.
+- For time-dependent tests, pass reference `time.Time` into test helpers — never call `time.Now()` independently inside helper functions.
+- File tree category colors per mockup: staged=SemanticGreen, working=SemanticYellow, untracked=SemanticCoral.
+- `strings.FieldsSeq` (Go 1.24+ iterator) is preferred over `strings.Fields` by golangci-lint.
