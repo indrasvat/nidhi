@@ -20,7 +20,7 @@ GOLANGCI   := $(shell command -v golangci-lint 2>/dev/null)
 LEFTHOOK   := $(shell command -v lefthook 2>/dev/null)
 
 # ─── Targets ──────────────────────────────────────────────
-.PHONY: build test lint check ci install install-tools install-hooks clean release coverage help
+.PHONY: build test lint check ci e2e install install-tools install-hooks clean release coverage help
 
 ## build: Compile binary to bin/nidhi
 build:
@@ -50,6 +50,14 @@ check: lint test
 
 ## ci: CI-only target (lint + test, fail-fast, no fallbacks)
 ci: lint test
+
+## e2e: Run end-to-end tests
+e2e:
+ifdef GOTESTSUM
+	gotestsum -- -race -v -count=1 ./internal/e2e/...
+else
+	go test -race -v -count=1 ./internal/e2e/...
+endif
 
 ## install: Install binary to ~/.local/bin
 install: build
