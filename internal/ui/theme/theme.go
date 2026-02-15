@@ -3,7 +3,7 @@ package theme
 import (
 	"image/color"
 
-	lipgloss "github.com/charmbracelet/lipgloss/v2"
+	lipgloss "charm.land/lipgloss/v2"
 )
 
 // Theme defines the contract for nidhi's visual styling.

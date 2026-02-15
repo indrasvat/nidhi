@@ -3,7 +3,7 @@ package theme
 import (
 	"image/color"
 
-	lipgloss "github.com/charmbracelet/lipgloss/v2"
+	lipgloss "charm.land/lipgloss/v2"
 )
 
 // Agni color token hex values from PRD section 9.1.

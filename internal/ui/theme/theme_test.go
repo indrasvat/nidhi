@@ -4,7 +4,7 @@ import (
 	"image/color"
 	"testing"
 
-	lipgloss "github.com/charmbracelet/lipgloss/v2"
+	lipgloss "charm.land/lipgloss/v2"
 	"github.com/indrasvat/nidhi/internal/ui/theme"
 )
 
