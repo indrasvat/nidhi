@@ -8,6 +8,15 @@ import (
 	"github.com/indrasvat/nidhi/internal/plugin"
 )
 
+// UIRenderer is an optional interface for rendering real screen content.
+// When nil, the model falls back to placeholder strings.
+// This avoids circular imports between core and ui/screens.
+type UIRenderer interface {
+	RenderContent(state AppState) string
+	HandleMessage(msg tea.Msg, state AppState) (AppState, tea.Cmd)
+	OnModeChange(prev, next Mode, state AppState) tea.Cmd
+}
+
 // Model is the top-level BubbleTea model for nidhi.
 type Model struct {
 	state AppState
@@ -20,6 +29,10 @@ type Model struct {
 	keyHandlers     *plugin.Registry[plugin.KeyHandler]
 	screenProviders *plugin.Registry[plugin.ScreenProvider]
 	stashHooks      *plugin.Registry[plugin.StashHook]
+
+	// UI is an optional renderer for real screen content.
+	// Set by cmd/nidhi/main.go after construction.
+	UI UIRenderer
 
 	ready bool
 }
@@ -63,6 +76,12 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case errMsg:
 		return m.handleError(msg)
 	}
+	// Forward unhandled messages to UI renderer (DiffLoadedMsg, ToastTickMsg, etc).
+	if m.UI != nil {
+		newState, cmd := m.UI.HandleMessage(msg, m.state)
+		m.state = newState
+		return m, cmd
+	}
 	return m, nil
 }
 
@@ -101,6 +120,12 @@ func (m *Model) handleWindowSize(msg tea.WindowSizeMsg) (tea.Model, tea.Cmd) {
 	m.state = WithSize(m.state, msg.Width, msg.Height)
 	m.ready = true
 	m.logger.Debug("window resized", "width", msg.Width, "height", msg.Height)
+	// Forward to UI for screen resize handling.
+	if m.UI != nil {
+		newState, cmd := m.UI.HandleMessage(msg, m.state)
+		m.state = newState
+		return m, cmd
+	}
 	return m, nil
 }
 
@@ -115,7 +140,8 @@ func (m *Model) handleKeyPress(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		if m.modes.Current() == ModeHelp {
 			m.popMode()
 		} else {
-			m.pushMode(ModeHelp)
+			cmd := m.pushMode(ModeHelp)
+			return m, cmd
 		}
 		return m, nil
 	case msg.Code == tea.KeyEscape:
@@ -167,11 +193,11 @@ func (m *Model) handleListKeys(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 
 	switch msg.Code {
 	case tea.KeyTab:
-		m.pushMode(ModePreview)
-		return m, nil
+		cmd := m.pushMode(ModePreview)
+		return m, cmd
 	case tea.KeyEnter:
-		m.pushMode(ModeDetail)
-		return m, nil
+		cmd := m.pushMode(ModeDetail)
+		return m, cmd
 	}
 
 	return m.delegateToPluginKeyHandlers(msg)
@@ -192,8 +218,8 @@ func (m *Model) handlePreviewKeys(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		m.popMode()
 		return m, nil
 	case tea.KeyEnter:
-		m.pushMode(ModeDetail)
-		return m, nil
+		cmd := m.pushMode(ModeDetail)
+		return m, cmd
 	}
 
 	return m.delegateToPluginKeyHandlers(msg)
@@ -227,14 +253,18 @@ func (m *Model) delegateToPluginKeyHandlers(msg tea.KeyPressMsg) (tea.Model, tea
 
 // ─── Mode helpers ───────────────────────────────────────────
 
-func (m *Model) pushMode(mode Mode) {
+func (m *Model) pushMode(mode Mode) tea.Cmd {
 	prev := m.modes.Current()
 	if err := m.modes.Push(mode); err != nil {
 		m.logger.Warn("mode push failed", "from", prev, "to", mode, "error", err)
-		return
+		return nil
 	}
 	m.state = WithMode(m.state, mode)
 	m.bus.Publish(NewModeChangedEvent(prev, mode))
+	if m.UI != nil {
+		return m.UI.OnModeChange(prev, mode, m.state)
+	}
+	return nil
 }
 
 func (m *Model) popMode() {
@@ -262,6 +292,10 @@ func (m *Model) loadStashes() tea.Cmd {
 // ─── Rendering ──────────────────────────────────────────────
 
 func (m *Model) renderContent() string {
+	if m.UI != nil {
+		return m.UI.RenderContent(m.state)
+	}
+	// Fallback for tests without UI wiring.
 	mode := m.modes.Current()
 	switch mode {
 	case ModeList:

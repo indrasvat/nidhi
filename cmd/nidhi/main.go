@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
@@ -20,6 +21,9 @@ import (
 	"github.com/indrasvat/nidhi/internal/plugins/stale"
 	pluginsync "github.com/indrasvat/nidhi/internal/plugins/sync"
 	"github.com/indrasvat/nidhi/internal/plugins/undo"
+	"github.com/indrasvat/nidhi/internal/ui/components"
+	"github.com/indrasvat/nidhi/internal/ui/layout"
+	"github.com/indrasvat/nidhi/internal/ui/screens"
 	"github.com/indrasvat/nidhi/internal/ui/theme"
 )
 
@@ -273,6 +277,30 @@ func run(flags config.CLIFlags) error {
 	// Create the model.
 	model := core.New(state, pctx, bus, logger, keyHandlers, screenProviders, stashHooks)
 
+	// Wire real UI screens into the core model.
+	th := theme.NewAgni()
+	listScreen := screens.NewListScreen(th)
+	previewScreen := screens.NewPreviewScreen(listScreen, &cacheAdapter{inner: gitCache}, th)
+	detailScreen := screens.NewDetailScreen(th)
+	helpOverlay := screens.NewHelpOverlay(th)
+	toastModel := components.NewToastModel(th)
+
+	repoName := filepath.Base(workDir)
+	useNerd := cfg.General.Icons == "nerd"
+
+	model.UI = &uiRenderer{
+		list:      listScreen,
+		preview:   previewScreen,
+		detail:    detailScreen,
+		help:      helpOverlay,
+		toast:     &toastModel,
+		statusBar: components.NewStatusBar(th),
+		footer:    components.NewFooter(th),
+		repoName:  repoName,
+		useNerd:   useNerd,
+		cache:     &cacheAdapter{inner: gitCache},
+	}
+
 	// If --debug, print timing and exit without starting TUI.
 	if cfg.Debug {
 		timing.Since("model creation", pluginStart)
@@ -378,6 +406,157 @@ func (a *cacheAdapter) Invalidate() {
 type themeAdapter struct{}
 
 func (a *themeAdapter) Color(_ string) string { return "" }
+
+// uiRenderer implements core.UIRenderer using the real screen components.
+// This breaks the circular import: core → ui/screens is not possible,
+// but cmd/nidhi/ can import both core and ui/*.
+type uiRenderer struct {
+	list    *screens.ListScreen
+	preview *screens.PreviewScreen
+	detail  *screens.DetailScreen
+	help    *screens.HelpOverlay
+	toast   *components.ToastModel
+
+	statusBar components.StatusBar
+	footer    components.Footer
+
+	repoName string
+	useNerd  bool
+	cache    plugin.StashCache
+}
+
+// RenderContent renders the full screen content for the current mode.
+func (u *uiRenderer) RenderContent(state core.AppState) string {
+	dims := layout.ComputeDimensions(state.Width, state.Height)
+
+	// Status bar.
+	sb := u.statusBar.Render(components.StatusBarParams{
+		RepoName:   u.repoName,
+		Branch:     state.Branch,
+		StashCount: len(state.Stashes),
+		GitVersion: state.GitVersion,
+		Width:      dims.TotalWidth,
+		UseNerd:    u.useNerd,
+	})
+
+	// Footer.
+	ft := u.footer.Render(components.FooterParams{
+		Mode:  state.Mode,
+		Width: dims.TotalWidth,
+	})
+
+	// Active screen content.
+	var content string
+	switch state.Mode {
+	case core.ModeList:
+		content = u.list.View(state, dims.ContentWidth, dims.ContentHeight)
+	case core.ModePreview:
+		content = u.preview.View(state, dims.ContentWidth, dims.ContentHeight)
+	case core.ModeDetail:
+		content = u.detail.View(state, dims.ContentWidth, dims.ContentHeight)
+	case core.ModeHelp:
+		// Help renders over the list view background.
+		bg := u.list.View(state, dims.ContentWidth, dims.ContentHeight)
+		content = u.help.RenderWithDimmedBackground(bg, dims.ContentWidth, dims.ContentHeight)
+	default:
+		content = u.list.View(state, dims.ContentWidth, dims.ContentHeight)
+	}
+
+	// Toast overlay (if visible, append to content).
+	if toastView := u.toast.View(); toastView != "" {
+		content = content + "\n" + toastView
+	}
+
+	return layout.Render(sb, content, ft)
+}
+
+// HandleMessage routes BubbleTea messages to the appropriate screen.
+func (u *uiRenderer) HandleMessage(msg tea.Msg, state core.AppState) (core.AppState, tea.Cmd) {
+	var cmds []tea.Cmd
+
+	// Toast always gets a chance to handle tick messages.
+	if _, ok := msg.(components.ToastTickMsg); ok {
+		cmd := u.toast.Update(msg)
+		if cmd != nil {
+			cmds = append(cmds, cmd)
+		}
+		return state, tea.Batch(cmds...)
+	}
+
+	// DiffLoadedMsg goes to preview and detail screens.
+	if diffMsg, ok := msg.(screens.DiffLoadedMsg); ok {
+		newState, cmd := u.preview.Update(msg, state)
+		if cmd != nil {
+			cmds = append(cmds, cmd)
+		}
+		if diffMsg.Err == nil {
+			u.detail.SetDiff(diffMsg.Diff)
+		}
+		return newState, tea.Batch(cmds...)
+	}
+
+	// Window resize: update all screens.
+	if _, ok := msg.(tea.WindowSizeMsg); ok {
+		newState, cmd := u.list.Update(msg, state)
+		if cmd != nil {
+			cmds = append(cmds, cmd)
+		}
+		newState, cmd = u.preview.Update(msg, newState)
+		if cmd != nil {
+			cmds = append(cmds, cmd)
+		}
+		newState, cmd = u.detail.Update(msg, newState)
+		if cmd != nil {
+			cmds = append(cmds, cmd)
+		}
+		return newState, tea.Batch(cmds...)
+	}
+
+	// Route to the active screen.
+	switch state.Mode {
+	case core.ModeList:
+		newState, cmd := u.list.Update(msg, state)
+		if cmd != nil {
+			cmds = append(cmds, cmd)
+		}
+		// If entering preview mode, trigger diff load.
+		if newState.Mode == core.ModePreview {
+			if diffCmd := u.preview.EnsureDiffLoaded(newState); diffCmd != nil {
+				cmds = append(cmds, diffCmd)
+			}
+		}
+		return newState, tea.Batch(cmds...)
+	case core.ModePreview:
+		newState, cmd := u.preview.Update(msg, state)
+		if cmd != nil {
+			cmds = append(cmds, cmd)
+		}
+		return newState, tea.Batch(cmds...)
+	case core.ModeDetail:
+		newState, cmd := u.detail.Update(msg, state)
+		if cmd != nil {
+			cmds = append(cmds, cmd)
+		}
+		return newState, tea.Batch(cmds...)
+	}
+
+	return state, tea.Batch(cmds...)
+}
+
+// OnModeChange handles side effects when the mode changes (e.g., loading diffs for PREVIEW).
+func (u *uiRenderer) OnModeChange(prev, next core.Mode, state core.AppState) tea.Cmd {
+	switch next {
+	case core.ModePreview:
+		return u.preview.EnsureDiffLoaded(state)
+	case core.ModeDetail:
+		// If entering detail from preview, the diff is already loaded.
+		// If from list, trigger a diff load.
+		if prev == core.ModeList {
+			return u.preview.EnsureDiffLoaded(state)
+		}
+	}
+	return nil
+}
 
 func printUsage() {
 	fmt.Print(`nidhi -- purpose-built TUI for git stash mastery
