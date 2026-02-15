@@ -45,5 +45,9 @@ dist/
 bin/
 profiles/
 
+# Screenshots (iTerm2 automation artifacts)
+.claude/automations/screenshots/
+.claude/screenshots/
+
 # Root binary
 /nidhi
