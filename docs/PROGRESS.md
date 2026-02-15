@@ -6,18 +6,18 @@
 
 Phase 1: Core (v0.1.0) — "First Light"
 
-## Status: 🟡 In Progress
+## Status: 🟢 Phase 1 Complete
 
 ### Milestone Targets (from PRD §18)
 
 #### Phase 1: Core (v0.1.0) — "First Light"
-- [ ] LIST mode with navigation (scrollable stash list, cursor, row rendering, progressive dimming)
-- [ ] PREVIEW mode (Tab toggle, diff viewport, file cycling)
-- [ ] DETAIL mode (file tree + diff split pane)
-- [ ] Basic CRUD (apply, pop, drop — no conflict preview, no undo yet)
-- [ ] Agni theme (full theme applied)
-- [ ] Responsive layout (80×24 through 200×60)
-- [ ] `--help`, `--version` CLI basics
+- [x] LIST mode with navigation (scrollable stash list, cursor, row rendering, progressive dimming)
+- [x] PREVIEW mode (Tab toggle, diff viewport, file cycling)
+- [x] DETAIL mode (file tree + diff split pane)
+- [x] Basic CRUD (apply, pop, drop — no conflict preview, no undo yet)
+- [x] Agni theme (full theme applied)
+- [x] Responsive layout (80×24 through 200×60)
+- [x] `--help`, `--version` CLI basics
 
 #### Phase 2: Safety Net (v0.2.0) — "No Fear"
 - [ ] Conflict preview plugin (merge-tree dry-run, conflict screen)
@@ -121,6 +121,15 @@ Phase 1: Core (v0.1.0) — "First Light"
   - 18 integration tests in operations_test.go: real git repos, no mocks
   - 545 tests passing, 0 lint issues, 82.9% coverage on git package
 
+- Implemented task 014: Phase 1 E2E tests and performance benchmarks
+  - internal/e2e/helpers_test.go: setupTestRepo, setupMultiFileStash, gitStashList, gitStashDiff, assertScreenContains/NotContains, noopCache
+  - internal/e2e/phase1_test.go: 12 E2E tests covering LIST rendering, cursor navigation, empty state, mode transitions (Tab/Enter/Esc), full cycle, CRUD sequence, detail with real diff, focus switching
+  - internal/e2e/benchmark_test.go: BenchmarkStartupTime, TestStartupTimeUnder100ms (avg 19ms), TestStartupTime100Stashes (24ms)
+  - Makefile: added `make e2e` target
+  - All tests use t.TempDir() + GIT_CONFIG_NOSYSTEM=1 for full isolation
+  - Phase 1 ("First Light") is now COMPLETE — 559 tests passing, 0 lint issues
+  - Performance: 19ms avg for 20 stashes, 24ms for 100 stashes (budget: <100ms / <300ms)
+
 ## Task List
 
 | # | Task | Phase | Status | Depends On |
@@ -139,7 +148,7 @@ Phase 1: Core (v0.1.0) — "First Light"
 | 011 | PREVIEW screen | P1 | DONE | 010, 009, 004 |
 | 012 | DETAIL screen | P1 | DONE | 010, 009, 007 |
 | 013 | Stash CRUD operations | P1 | DONE | 001, 004 |
-| 014 | Phase 1 integration & E2E | P1 | TODO | 010-013 |
+| 014 | Phase 1 integration & E2E | P1 | DONE | 010-013 |
 | 015 | Conflict preview plugin | P2 | TODO | 013, 006 |
 | 016 | Undo plugin | P2 | TODO | 013, 007 |
 | 017 | Rename plugin | P2 | TODO | 013, 008 |
