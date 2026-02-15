@@ -13,7 +13,9 @@ import (
 	"github.com/indrasvat/nidhi/internal/plugin"
 	"github.com/indrasvat/nidhi/internal/plugins/conflict"
 	"github.com/indrasvat/nidhi/internal/plugins/rename"
+	"github.com/indrasvat/nidhi/internal/plugins/search"
 	"github.com/indrasvat/nidhi/internal/plugins/undo"
+	"github.com/indrasvat/nidhi/internal/ui/theme"
 )
 
 // Build metadata injected via ldflags at compile time.
@@ -129,6 +131,16 @@ func run() error {
 	} else {
 		_ = keyHandlers.Register(renamePlugin, 100)
 		logger.Info("registered rename plugin")
+	}
+
+	// Register search plugin.
+	searchPlugin := search.New(theme.NewAgni())
+	if err := searchPlugin.Init(pctx); err != nil {
+		logger.Error("failed to init search plugin", "error", err)
+	} else {
+		_ = keyHandlers.Register(searchPlugin, 100)
+		_ = screenProviders.Register(searchPlugin, 100)
+		logger.Info("registered search plugin")
 	}
 
 	// Recover from any interrupted rename operations.

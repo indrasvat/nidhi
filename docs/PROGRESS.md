@@ -26,7 +26,7 @@ Phase 3: Power User (v0.3.0) — "Master of Stashes"
 - [x] New stash screen (message-first, scope toggles, keep-index)
 
 #### Phase 3: Power User (v0.3.0) — "Master of Stashes"
-- [ ] Deep search plugin (fuzzy search across messages/files/diffs)
+- [x] Deep search plugin (fuzzy search across messages/files/diffs)
 - [ ] Filter plugin (branch filter, stale filter)
 - [ ] Stale detection plugin (badge, bulk drop)
 - [ ] Reorder plugin (Shift+J/K move)
@@ -187,6 +187,23 @@ Phase 3: Power User (v0.3.0) — "Master of Stashes"
   - 678 total tests passing, 0 lint issues
   - **Phase 2 ("No Fear") is now COMPLETE**
 
+- Implemented task 020: Deep fuzzy search plugin
+  - internal/plugins/search/index.go: Index type with fuzzy search (sahilm/fuzzy), scope filtering (All/Messages/Files/Diffs/Branch)
+  - ParseDiffForIndex: extracts file names and diff lines from unified diff output, tracks line numbers from hunk headers
+  - BuildIndexCmd: async index builder via tea.Cmd — Phase 1 indexes messages/branches (instant), Phase 2 indexes files/diffs (git calls)
+  - Deduplication: collapses multiple diff line matches to best score per stash+scope
+  - Thread-safe Index with RWMutex, partial results support, Reset for rebuild
+  - internal/plugins/search/search.go: Plugin implementing KeyHandler + ScreenProvider
+  - Custom text input (no bubbles dependency) matching newstash.go pattern
+  - "/" activates search from LIST/PREVIEW, Esc closes, Tab cycles scopes, Ctrl+N/P navigates results, Enter jumps to stash
+  - Enter opens PREVIEW for diff/file matches, LIST for message/branch matches
+  - Live filtering: re-runs fuzzy search on every keystroke
+  - Theme-aware rendering: Agni theme colors, highlighted match characters, scope chips, result count
+  - Lazy indexing: index builds on first "/" press (default), builds from AppState.Stashes + StashCache.Diff
+  - Plugin registered in main.go as both KeyHandler and ScreenProvider
+  - 33 search plugin tests: index unit tests, diff parser tests, plugin unit tests, view tests, 3 integration tests
+  - 711 total tests passing, 0 lint issues, 86.4% search plugin coverage
+
 ## Task List
 
 | # | Task | Phase | Status | Depends On |
@@ -211,7 +228,7 @@ Phase 3: Power User (v0.3.0) — "Master of Stashes"
 | 017 | Rename plugin | P2 | DONE | 013, 008 |
 | 018 | New stash screen | P2 | DONE | 013, 006 |
 | 019 | Phase 2 integration & E2E | P2 | DONE | 015-018 |
-| 020 | Search plugin | P3 | TODO | 006, 004 |
+| 020 | Search plugin | P3 | DONE | 006, 004 |
 | 021 | Filter & stale plugins | P3 | TODO | 006, 004 |
 | 022 | Reorder plugin | P3 | TODO | 013, 017 |
 | 023 | Export/import plugin | P4 | TODO | 006, 001 |
