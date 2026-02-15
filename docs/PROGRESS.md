@@ -4,9 +4,9 @@
 
 ## Current Phase
 
-Phase 4: Sync (v0.4.0) — "Across Machines"
+Phase 5: Polish (v1.0.0) — "Release"
 
-## Status: 🟢 Phase 3 Complete, Phase 4 TODO
+## Status: 🟢 Phase 4 Complete, Phase 5 TODO
 
 ### Milestone Targets (from PRD §18)
 
@@ -32,9 +32,9 @@ Phase 4: Sync (v0.4.0) — "Across Machines"
 - [x] Reorder plugin (Shift+J/K move)
 
 #### Phase 4: Sync (v0.4.0) — "Across Machines"
-- [ ] Export plugin (multi-select, ref path, remote selector, push)
-- [ ] Import plugin (fetch, preview, import)
-- [ ] Git version gating (graceful feature disable for old Git)
+- [x] Export plugin (multi-select, ref path, remote selector, push)
+- [x] Import plugin (fetch, preview, import)
+- [x] Git version gating (graceful feature disable for old Git)
 
 #### Phase 5: Polish (v1.0.0) — "Release"
 - [ ] Help overlay (full keybind reference)
@@ -234,6 +234,23 @@ Phase 4: Sync (v0.4.0) — "Across Machines"
   - 24 reorder tests: 7 journal unit tests, 5 ComputeNewOrder unit tests, 8 plugin unit tests, 4 git integration tests
   - 771 total tests passing, 0 lint issues, 54.1% reorder coverage
 
+- Implemented task 023: Export/Import & Remote Sync plugin
+  - internal/plugins/sync/sync.go: Plugin implementing KeyHandler + ScreenProvider (PRD FR-12)
+  - Version gating: git stash export/import requires Git >= 2.51; shows toast on older Git
+  - Export screen: multi-select stash list (Space toggle, 'a' select all), ref path input with cursor, remote selector
+  - Import screen: ref path input with cursor, remote selector, fetch+import workflow
+  - ExportCmd: validate ref → `git stash export --to-ref <ref>` → `git push --no-verify --force <remote> <ref>`
+  - ImportCmd: `git fetch <remote> <ref>:<ref>` → `git stash import <ref>`
+  - ParseRemotes: parses `git remote -v` output, deduplicates by name
+  - ExportCommandPreview: live command preview updated on selection/ref/remote change
+  - Config integration: export_ref, export_remote settings from config; $USER expansion in ref path
+  - Custom text input for ref editing (no bubbles dependency), same pattern as newstash/search
+  - Tab navigation between fields (3 in export, 2 in import), Esc cancels, Enter executes
+  - Plugin registered in main.go as both KeyHandler and ScreenProvider
+  - 46 sync plugin tests: identity/bindings, version gating, export screen flow, import screen flow, ParseRemotes, ExportCmd/ImportCmd unit tests, ValidateRef, edge cases
+  - 817 total tests passing, 0 lint issues, 78.1% sync plugin coverage
+  - **Phase 4 ("Across Machines") is now COMPLETE**
+
 ## Task List
 
 | # | Task | Phase | Status | Depends On |
@@ -261,7 +278,7 @@ Phase 4: Sync (v0.4.0) — "Across Machines"
 | 020 | Search plugin | P3 | DONE | 006, 004 |
 | 021 | Filter & stale plugins | P3 | DONE | 006, 004 |
 | 022 | Reorder plugin | P3 | DONE | 013, 017 |
-| 023 | Export/import plugin | P4 | TODO | 006, 001 |
+| 023 | Export/import plugin | P4 | DONE | 006, 001 |
 | 024 | Help overlay & mouse support | P5 | TODO | 006, 007 |
 | 025 | Config file & polish | P5 | TODO | 002, 006 |
 | 026 | Comprehensive E2E tests | Final | TODO | 000-024 |

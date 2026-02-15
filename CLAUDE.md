@@ -140,6 +140,8 @@ UI Layer — BubbleTea v2 (screen router, layout engine, overlay manager, compon
 - Plugin registration happens in `cmd/nidhi/main.go`, not `plugin/loader.go`, to avoid circular imports (plugins/ → plugin/ → plugins/ cycle).
 - `plugin.GitRunner` and `git.GitRunner` have identical methods — Go structural typing allows passing either where the other is expected.
 - Rename plugin uses `~/.local/state/nidhi/reorder-journal.json` (for rename's drop+re-store). Reorder plugin uses `~/.local/state/nidhi/move-journal.json` to avoid collision.
+- Import `sync` package as `pluginsync` in `main.go` to avoid collision with Go's built-in `sync` package.
+- `plugin.NewPluginContext()` requires all 7 params non-nil (including Theme). Tests must pass a mock theme, not nil.
 
 ### UI Components
 - Mockup badge colors: LIST=gold, PREVIEW=aqua, DETAIL=blue, SEARCH=purple, EXPORT=orange, NEW=green, CONFLICT=yellow, HELP=dimmed.

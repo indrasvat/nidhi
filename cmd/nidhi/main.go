@@ -17,6 +17,7 @@ import (
 	"github.com/indrasvat/nidhi/internal/plugins/reorder"
 	"github.com/indrasvat/nidhi/internal/plugins/search"
 	"github.com/indrasvat/nidhi/internal/plugins/stale"
+	pluginsync "github.com/indrasvat/nidhi/internal/plugins/sync"
 	"github.com/indrasvat/nidhi/internal/plugins/undo"
 	"github.com/indrasvat/nidhi/internal/ui/theme"
 )
@@ -171,6 +172,16 @@ func run() error {
 	} else {
 		_ = keyHandlers.Register(reorderPlugin, 100)
 		logger.Info("registered reorder plugin")
+	}
+
+	// Register export/import sync plugin.
+	syncPlugin := pluginsync.New(theme.NewAgni())
+	if err := syncPlugin.Init(pctx); err != nil {
+		logger.Error("failed to init sync plugin", "error", err)
+	} else {
+		_ = keyHandlers.Register(syncPlugin, 100)
+		_ = screenProviders.Register(syncPlugin, 100)
+		logger.Info("registered sync plugin")
 	}
 
 	// Recover from any interrupted rename operations.
