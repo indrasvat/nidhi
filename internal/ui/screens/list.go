@@ -258,11 +258,13 @@ func (l *ListScreen) renderStashList(state core.AppState, width, height int) str
 		}
 	}
 
-	// Pad remaining height.
+	// Pad remaining height with full-width spaces (not empty lines).
+	// Empty lines would show terminal default bg instead of themed bg.
 	rendered := b.String()
 	renderedLines := strings.Count(rendered, "\n") + 1
+	emptyLine := strings.Repeat(" ", width)
 	for i := renderedLines; i < height; i++ {
-		rendered += "\n"
+		rendered += "\n" + emptyLine
 	}
 
 	return rendered

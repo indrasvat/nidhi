@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"image/color"
 	"log/slog"
 
 	tea "charm.land/bubbletea/v2"
@@ -33,6 +34,10 @@ type Model struct {
 	// UI is an optional renderer for real screen content.
 	// Set by cmd/nidhi/main.go after construction.
 	UI UIRenderer
+
+	// BgColor sets the terminal's default background color via OSC 11.
+	// Set by cmd/nidhi/main.go to the theme's bg.deep color.
+	BgColor color.Color
 
 	ready bool
 }
@@ -90,11 +95,13 @@ func (m *Model) View() tea.View {
 	if !m.ready {
 		v := tea.NewView("Loading nidhi...")
 		v.AltScreen = true
+		v.BackgroundColor = m.BgColor
 		return v
 	}
 	content := m.renderContent()
 	v := tea.NewView(content)
 	v.AltScreen = true
+	v.BackgroundColor = m.BgColor
 	return v
 }
 
@@ -138,15 +145,13 @@ func (m *Model) handleKeyPress(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, tea.Quit
 	case msg.Text == "?":
 		if m.modes.Current() == ModeHelp {
-			m.popMode()
+			return m, m.popMode()
 		} else {
 			cmd := m.pushMode(ModeHelp)
 			return m, cmd
 		}
-		return m, nil
 	case msg.Code == tea.KeyEscape:
-		m.popMode()
-		return m, nil
+		return m, m.popMode()
 	}
 
 	// Mode-specific key handling.
@@ -176,21 +181,7 @@ func (m *Model) handleError(msg errMsg) (tea.Model, tea.Cmd) {
 // ─── Built-in key handlers ──────────────────────────────────
 
 func (m *Model) handleListKeys(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
-	switch msg.Text {
-	case "j":
-		m.state = WithCursor(m.state, m.state.Cursor+1)
-		return m, nil
-	case "k":
-		m.state = WithCursor(m.state, m.state.Cursor-1)
-		return m, nil
-	case "g":
-		m.state = WithCursor(m.state, 0)
-		return m, nil
-	case "G":
-		m.state = WithCursor(m.state, len(m.state.Stashes)-1)
-		return m, nil
-	}
-
+	// Mode switches use pushMode (must stay in core for mode stack).
 	switch msg.Code {
 	case tea.KeyTab:
 		cmd := m.pushMode(ModePreview)
@@ -200,26 +191,35 @@ func (m *Model) handleListKeys(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, cmd
 	}
 
+	// Delegate all other keys (j/k/g/G, CRUD actions) to UI screens.
+	if m.UI != nil {
+		newState, cmd := m.UI.HandleMessage(msg, m.state)
+		m.state = newState
+		if cmd != nil {
+			return m, cmd
+		}
+	}
+
 	return m.delegateToPluginKeyHandlers(msg)
 }
 
 func (m *Model) handlePreviewKeys(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
-	switch msg.Text {
-	case "j":
-		m.state = WithCursor(m.state, m.state.Cursor+1)
-		return m, nil
-	case "k":
-		m.state = WithCursor(m.state, m.state.Cursor-1)
-		return m, nil
-	}
-
+	// Mode switches use pushMode/popMode (must stay in core for mode stack).
 	switch msg.Code {
 	case tea.KeyTab:
-		m.popMode()
-		return m, nil
+		return m, m.popMode()
 	case tea.KeyEnter:
 		cmd := m.pushMode(ModeDetail)
 		return m, cmd
+	}
+
+	// Delegate all other keys (j/k/h/l, diff scroll, CRUD) to UI screens.
+	if m.UI != nil {
+		newState, cmd := m.UI.HandleMessage(msg, m.state)
+		m.state = newState
+		if cmd != nil {
+			return m, cmd
+		}
 	}
 
 	return m.delegateToPluginKeyHandlers(msg)
@@ -267,13 +267,17 @@ func (m *Model) pushMode(mode Mode) tea.Cmd {
 	return nil
 }
 
-func (m *Model) popMode() {
+func (m *Model) popMode() tea.Cmd {
 	prev := m.modes.Current()
 	newMode := m.modes.Pop()
 	m.state = WithMode(m.state, newMode)
 	if prev != newMode {
 		m.bus.Publish(NewModeChangedEvent(prev, newMode))
+		if m.UI != nil {
+			return m.UI.OnModeChange(prev, newMode, m.state)
+		}
 	}
+	return nil
 }
 
 // ─── Async commands ─────────────────────────────────────────

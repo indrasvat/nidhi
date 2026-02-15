@@ -101,6 +101,17 @@ func (h *HelpOverlay) Toggle() {
 	h.scrollY = 0
 }
 
+// Show makes the help overlay visible and resets scroll position.
+func (h *HelpOverlay) Show() {
+	h.visible = true
+	h.scrollY = 0
+}
+
+// Hide makes the help overlay invisible.
+func (h *HelpOverlay) Hide() {
+	h.visible = false
+}
+
 // IsVisible returns whether the help overlay is currently shown.
 func (h *HelpOverlay) IsVisible() bool {
 	return h.visible

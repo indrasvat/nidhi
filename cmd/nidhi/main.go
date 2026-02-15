@@ -288,6 +288,8 @@ func run(flags config.CLIFlags) error {
 	repoName := filepath.Base(workDir)
 	useNerd := cfg.General.Icons == "nerd"
 
+	model.BgColor = th.BgDeep()
+
 	model.UI = &uiRenderer{
 		list:      listScreen,
 		preview:   previewScreen,
@@ -545,7 +547,14 @@ func (u *uiRenderer) HandleMessage(msg tea.Msg, state core.AppState) (core.AppSt
 
 // OnModeChange handles side effects when the mode changes (e.g., loading diffs for PREVIEW).
 func (u *uiRenderer) OnModeChange(prev, next core.Mode, state core.AppState) tea.Cmd {
+	// Hide help when leaving ModeHelp.
+	if prev == core.ModeHelp {
+		u.help.Hide()
+	}
+
 	switch next {
+	case core.ModeHelp:
+		u.help.Show()
 	case core.ModePreview:
 		return u.preview.EnsureDiffLoaded(state)
 	case core.ModeDetail:

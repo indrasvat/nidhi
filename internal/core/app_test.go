@@ -36,6 +36,27 @@ type mockTheme struct{}
 
 func (m *mockTheme) Color(_ string) string { return "#000000" }
 
+// mockUIRenderer handles cursor navigation keys the same way ListScreen does.
+type mockUIRenderer struct{}
+
+func (m *mockUIRenderer) RenderContent(_ AppState) string { return "mock" }
+func (m *mockUIRenderer) HandleMessage(msg tea.Msg, state AppState) (AppState, tea.Cmd) {
+	if keyMsg, ok := msg.(tea.KeyPressMsg); ok {
+		switch keyMsg.Text {
+		case "j":
+			return WithCursor(state, state.Cursor+1), nil
+		case "k":
+			return WithCursor(state, state.Cursor-1), nil
+		case "g":
+			return WithCursor(state, 0), nil
+		case "G":
+			return WithCursor(state, len(state.Stashes)-1), nil
+		}
+	}
+	return state, nil
+}
+func (m *mockUIRenderer) OnModeChange(_, _ Mode, _ AppState) tea.Cmd { return nil }
+
 func newTestModel(stashes []plugin.Stash) *Model {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	bus := NewBus()
@@ -85,6 +106,7 @@ func TestModel_WindowSizeMsg(t *testing.T) {
 func TestModel_CursorNavigation(t *testing.T) {
 	m := newTestModel(testStashes())
 	m.ready = true
+	m.UI = &mockUIRenderer{}
 
 	updated, _ := m.Update(tea.KeyPressMsg{Text: "j"})
 	model := updated.(*Model)
@@ -115,6 +137,7 @@ func TestModel_CursorNavigation(t *testing.T) {
 func TestModel_JumpToFirstLast(t *testing.T) {
 	m := newTestModel(testStashes())
 	m.ready = true
+	m.UI = &mockUIRenderer{}
 	m.state = WithCursor(m.state, 1)
 
 	updated, _ := m.Update(tea.KeyPressMsg{Text: "g"})
