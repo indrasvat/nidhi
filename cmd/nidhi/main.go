@@ -1,8 +1,16 @@
 package main
 
 import (
+	"context"
 	"fmt"
+	"log/slog"
 	"os"
+
+	tea "charm.land/bubbletea/v2"
+	"github.com/indrasvat/nidhi/internal/config"
+	"github.com/indrasvat/nidhi/internal/core"
+	"github.com/indrasvat/nidhi/internal/git"
+	"github.com/indrasvat/nidhi/internal/plugin"
 )
 
 // Build metadata injected via ldflags at compile time.
@@ -25,10 +33,176 @@ func main() {
 		}
 	}
 
-	// TODO: Initialize config, git runner, BubbleTea program
-	fmt.Println("nidhi -- purpose-built TUI for git stash mastery")
-	fmt.Println("Run with --help for usage.")
+	if err := run(); err != nil {
+		fmt.Fprintf(os.Stderr, "nidhi: %v\n", err)
+		os.Exit(1)
+	}
 }
+
+func run() error {
+	// Load config.
+	cfg, err := config.Load(config.CLIFlags{})
+	if err != nil {
+		return fmt.Errorf("loading config: %w", err)
+	}
+
+	// Set up logger.
+	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
+		Level: slog.LevelError,
+	}))
+
+	// Detect working directory.
+	workDir, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("getting working directory: %w", err)
+	}
+
+	// Set up git runner and detect version.
+	runner := git.NewDefaultRunner(workDir, logger)
+	ctx, cancel := context.WithTimeout(context.Background(), git.DefaultTimeout)
+	defer cancel()
+
+	gitVer, err := git.DetectVersion(ctx, runner)
+	if err != nil {
+		return fmt.Errorf("detecting git version: %w", err)
+	}
+
+	// Detect current branch.
+	branch, _ := runner.Run(ctx, "rev-parse", "--abbrev-ref", "HEAD")
+
+	// Build services.
+	bus := core.NewBus()
+	gitCache := git.NewDefaultStashCache(runner, cfg.StaleThreshold(), cfg.Performance.DiffCacheSize)
+
+	pluginGitVer := plugin.GitVersion{
+		Major: gitVer.Major,
+		Minor: gitVer.Minor,
+		Patch: gitVer.Patch,
+		Raw:   gitVer.Raw,
+	}
+
+	pctx, err := plugin.NewPluginContext(
+		runner,
+		&cacheAdapter{inner: gitCache},
+		&configAdapter{cfg: cfg},
+		bus,
+		logger,
+		pluginGitVer,
+		&themeAdapter{},
+	)
+	if err != nil {
+		return fmt.Errorf("creating plugin context: %w", err)
+	}
+
+	// Create registries.
+	keyHandlers := plugin.NewRegistry[plugin.KeyHandler]()
+	screenProviders := plugin.NewRegistry[plugin.ScreenProvider]()
+	stashHooks := plugin.NewRegistry[plugin.StashHook]()
+
+	// Create initial state.
+	state := core.NewAppState(workDir, branch, pluginGitVer)
+
+	// Create the model.
+	model := core.New(state, pctx, bus, logger, keyHandlers, screenProviders, stashHooks)
+
+	// Run BubbleTea.
+	p := tea.NewProgram(model)
+	if _, err := p.Run(); err != nil {
+		return fmt.Errorf("running TUI: %w", err)
+	}
+
+	return nil
+}
+
+// configAdapter wraps config.Config to implement plugin.ConfigStore.
+type configAdapter struct {
+	cfg config.Config
+}
+
+func (a *configAdapter) GetString(key string) string {
+	switch key {
+	case "icons":
+		return a.cfg.General.Icons
+	case "theme":
+		return a.cfg.Theme.Name
+	case "log_level":
+		return a.cfg.Log.Level
+	case "export_ref":
+		return a.cfg.Export.Ref
+	case "export_remote":
+		return a.cfg.Export.Remote
+	default:
+		return ""
+	}
+}
+
+func (a *configAdapter) GetInt(key string) int {
+	switch key {
+	case "stale_days":
+		return a.cfg.General.StaleDays
+	case "preload_diffs":
+		return a.cfg.Performance.PreloadDiffs
+	case "diff_cache_size":
+		return a.cfg.Performance.DiffCacheSize
+	default:
+		return 0
+	}
+}
+
+func (a *configAdapter) GetBool(key string) bool {
+	switch key {
+	case "keep_index":
+		return a.cfg.General.KeepIndex
+	case "auto_message":
+		return a.cfg.General.AutoMessage
+	default:
+		return false
+	}
+}
+
+// cacheAdapter bridges git.DefaultStashCache to plugin.StashCache
+// by converting git.Stash → plugin.Stash.
+type cacheAdapter struct {
+	inner *git.DefaultStashCache
+}
+
+func (a *cacheAdapter) List(ctx context.Context) ([]plugin.Stash, error) {
+	gitStashes, err := a.inner.List(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]plugin.Stash, len(gitStashes))
+	for i, gs := range gitStashes {
+		out[i] = plugin.Stash{
+			Index:        gs.Index,
+			SHA:          gs.SHA,
+			ShortSHA:     gs.ShortSHA,
+			Message:      gs.Message,
+			RawMessage:   gs.RawMessage,
+			Branch:       gs.Branch,
+			Date:         gs.Date,
+			FileCount:    gs.FileCount,
+			Insertions:   gs.Insertions,
+			Deletions:    gs.Deletions,
+			IsStale:      gs.IsStale,
+			HasUntracked: gs.HasUntracked,
+		}
+	}
+	return out, nil
+}
+
+func (a *cacheAdapter) Diff(ctx context.Context, sha string) (string, error) {
+	return a.inner.Diff(ctx, sha)
+}
+
+func (a *cacheAdapter) Invalidate() {
+	a.inner.Invalidate()
+}
+
+// themeAdapter wraps the Agni theme to implement plugin.Theme.
+type themeAdapter struct{}
+
+func (a *themeAdapter) Color(_ string) string { return "" }
 
 func printUsage() {
 	fmt.Print(`nidhi -- purpose-built TUI for git stash mastery

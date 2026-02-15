@@ -113,8 +113,8 @@ UI Layer — BubbleTea v2 (screen router, layout engine, overlay manager, compon
 
 ### LipGloss v2
 - `AdaptiveColor` is NOT in main lipgloss/v2 package. Moved to `lipgloss/v2/compat`.
-- Import path is `github.com/charmbracelet/lipgloss/v2` (beta.3). Transitioning to `charm.land/lipgloss/v2`.
-- LipGloss v2 beta.3 declares module as `github.com/charmbracelet/lipgloss/v2` but may be required as `charm.land/lipgloss/v2` — let Bubbles v2 pull it in transitively to avoid module path mismatch.
+- RESOLVED: Use `charm.land/lipgloss/v2` import path (NOT `github.com/charmbracelet/lipgloss/v2`). The tagged versions (beta.3) declare old module path, but Bubbles v2 RC1 pulls in a pseudo-version with `charm.land/` module path. Use `go get charm.land/lipgloss/v2@v2.0.0-beta.3.0.20251106192539-4b304240aab7` for exact version.
+- `cellbuf` and `ansi` packages must be version-matched. Upgrading `ansi` without upgrading `cellbuf` breaks the build (API signature changes: `Italic()` → `Italic(bool)`).
 
 ### Git Operations
 - `git stash export/import` requires Git ≥ 2.51. Feature-gate at runtime.
@@ -122,3 +122,10 @@ UI Layer — BubbleTea v2 (screen router, layout engine, overlay manager, compon
 
 ### Go Patterns
 - Files ending in `_test.go` are ONLY compiled by `go test`, not `go run` or `go build`. Name throwaway verification files differently.
+- `git.Stash` and `plugin.Stash` are separate types with identical fields. Use a `cacheAdapter` in main.go to convert between them. Future refactor: make `git.Stash` a type alias for `plugin.Stash`.
+- `git.GitVersion.AtLeast(major, minor, patch)` takes 3 args but `plugin.GitVersion.AtLeast(major, minor)` takes 2 — different signatures, cannot alias. Convert manually.
+
+### Architecture
+- `plugin` package is the canonical source for domain types (Stash, AppState, GitVersion, interfaces).
+- `git` package has its own parallel types that must be bridged via adapters in `cmd/nidhi/main.go`.
+- `core` package uses type aliases (`type AppState = plugin.AppState`) to avoid import indirection.

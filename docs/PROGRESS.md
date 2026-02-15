@@ -6,7 +6,7 @@
 
 Phase 1: Core (v0.1.0) — "First Light"
 
-## Status: 🔴 Not Started
+## Status: 🟡 In Progress
 
 ### Milestone Targets (from PRD §18)
 
@@ -62,17 +62,24 @@ Phase 1: Core (v0.1.0) — "First Light"
   - Phase 5 (024-025): Help overlay, mouse support, config polish
   - Final (026-030): Comprehensive E2E, performance validation, CI/CD, docs, release
 
+### 2026-02-15
+- Implemented tasks 005-006: plugin interfaces/registry, core BubbleTea model, mode management
+- Fixed Charm v2 dependency graph: switched lipgloss to charm.land/lipgloss/v2, added charm.land/bubbles/v2@rc.1
+- Wired main.go to launch real BubbleTea TUI program with all services
+- iTerm2 visual testing confirmed: TUI launches, empty state renders, j/k/? keys work, q quits cleanly
+- 287 tests passing, 0 lint issues, ~80%+ coverage across packages
+
 ## Task List
 
 | # | Task | Phase | Status | Depends On |
 |---|---|---|---|---|
-| 000 | Repository scaffold & tooling | Setup | TODO | — |
-| 001 | Git runner & version detection | P1 | TODO | 000 |
-| 002 | Config loading | P1 | TODO | 000 |
-| 003 | Agni theme & icons | P1 | TODO | 000 |
-| 004 | Stash parser & cache | P1 | TODO | 001 |
-| 005 | Plugin interfaces & registry | P1 | TODO | 001, 002 |
-| 006 | Core BubbleTea model & mode mgmt | P1 | TODO | 005, 004, 003 |
+| 000 | Repository scaffold & tooling | Setup | DONE | — |
+| 001 | Git runner & version detection | P1 | DONE | 000 |
+| 002 | Config loading | P1 | DONE | 000 |
+| 003 | Agni theme & icons | P1 | DONE | 000 |
+| 004 | Stash parser & cache | P1 | DONE | 001 |
+| 005 | Plugin interfaces & registry | P1 | DONE | 001, 002 |
+| 006 | Core BubbleTea model & mode mgmt | P1 | DONE | 005, 004, 003 |
 | 007 | Layout engine & chrome | P1 | TODO | 006, 003 |
 | 008 | Stash row renderer | P1 | TODO | 003, 007 |
 | 009 | Diff view & file tree | P1 | TODO | 003, 007 |
