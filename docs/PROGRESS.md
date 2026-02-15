@@ -23,7 +23,7 @@ Phase 2: Safety Net (v0.2.0) — "No Fear"
 - [x] Conflict preview plugin (merge-tree dry-run, conflict screen)
 - [x] Undo plugin (toast, z-key recovery, reflog fallback)
 - [x] Rename plugin (inline rename with drop+store)
-- [ ] New stash screen (message-first, scope toggles, keep-index)
+- [x] New stash screen (message-first, scope toggles, keep-index)
 
 #### Phase 3: Power User (v0.3.0) — "Master of Stashes"
 - [ ] Deep search plugin (fuzzy search across messages/files/diffs)
@@ -163,6 +163,17 @@ Phase 2: Safety Net (v0.2.0) — "No Fear"
   - 13 rename plugin tests: journal ops, integration rename flows, SHA preservation, recovery
   - 636 total tests passing, 0 lint issues, 79.6% rename plugin coverage
 
+- Implemented task 018: New stash creation screen with scope toggles
+  - internal/ui/screens/newstash.go: ScreenProvider for new stash creation
+  - Message-first design: cursor starts in message field, custom text input (no bubbles dependency)
+  - Scope toggles: Staged, Unstaged, Untracked with live file counts from git status --porcelain
+  - Options: keep-index, patch mode (signals PatchModeMsg for tea.Exec)
+  - Tab navigation between message, scopes, options; Space to toggle; Enter to create; Esc to cancel
+  - BuildArgs constructs correct git stash push flags from UI state
+  - Theme-aware rendering via Agni theme (headerStyle, dimStyle, greenStyle, activeStyle, errStyle)
+  - 29 new tests: flag construction, tab navigation, view rendering, message input, scope/option toggles
+  - 665 total tests passing, 0 lint issues, 77.7% screens coverage
+
 ## Task List
 
 | # | Task | Phase | Status | Depends On |
@@ -185,7 +196,7 @@ Phase 2: Safety Net (v0.2.0) — "No Fear"
 | 015 | Conflict preview plugin | P2 | DONE | 013, 006 |
 | 016 | Undo plugin | P2 | DONE | 013, 007 |
 | 017 | Rename plugin | P2 | DONE | 013, 008 |
-| 018 | New stash screen | P2 | TODO | 013, 006 |
+| 018 | New stash screen | P2 | DONE | 013, 006 |
 | 019 | Phase 2 integration & E2E | P2 | TODO | 015-018 |
 | 020 | Search plugin | P3 | TODO | 006, 004 |
 | 021 | Filter & stale plugins | P3 | TODO | 006, 004 |
