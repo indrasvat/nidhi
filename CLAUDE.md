@@ -163,3 +163,5 @@ UI Layer — BubbleTea v2 (screen router, layout engine, overlay manager, compon
 - Use `msg.Mod.Contains(tea.ModCtrl)` not `msg.Mod == tea.ModCtrl` for modifier checks (other modifiers may be set simultaneously).
 - `FileTreeModel.visibleItems()` always renders all 3 category headers (staged/working/untracked) even when empty. Phase 2 will add proper category distinction.
 - Staticcheck QF1006: loop conditions like `for { if cond { break } ... }` should be `for !cond { ... }`.
+- **Singleton screens**: Screens (ListScreen, PreviewScreen, DetailScreen) are created once in main.go and reused across mode transitions. Mutable state like `focused`, cursor positions persists — must be explicitly reset via OnModeChange on mode entry (e.g., `detail.ResetFocus()`).
+- **iTerm2 screen buffer includes scrollback**: `async_get_screen_contents()` returns the full buffer, not just visible lines. Strip trailing blank lines before checking footer content.

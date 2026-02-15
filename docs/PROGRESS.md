@@ -366,6 +366,35 @@ Phase 5: Polish (v1.0.0) — "Release"
   - All fixes verified with iterm2-driver E2E tests: 10/10 tests pass
   - 933 tests still passing, 0 lint issues
 
+- Fixed tasks 034-035: DETAIL key routing, welcome banner, status bar version
+  - Task 034 (P0): 8 bugs fixed — ModeDetail routing in core/app.go, Tab in Detail mode,
+    dead Esc handler removed from detail.go, `?` help hint added to all mode footers,
+    arrow keys (up/down) added to LIST, PREVIEW, DETAIL screens
+  - Task 035: Welcome screen with ASCII art "NIDHI" logo (warm gold-to-ember gradient),
+    3 feature cards, "Press Enter to continue" CTA, version+commit info
+    - Version + git version visible in status bar across all modes
+    - Welcome screen dismissible with Enter, respects q and Ctrl+C
+  - Fixed DETAIL Tab focus persistence bug: DetailScreen is a singleton reused across
+    mode transitions. After Tab switched focus to diff pane, `focused` state persisted
+    through Esc + re-enter. Added ResetFocus() method called on every DETAIL mode entry.
+  - 933 tests passing, 0 lint issues
+
+- Overhauled iTerm2 E2E tests (task 036): interaction-based testing
+  - Rewrote `.claude/automations/comprehensive_tui_test.py` from keyword-presence to
+    content-change assertions: each key press verifies the screen actually changed
+  - Polling via `wait_for()` replaces hardcoded sleeps — robust against timing variations
+  - 34 interaction tests covering all 3 modes (LIST/PREVIEW/DETAIL):
+    - j/k, arrow keys, g/G in LIST mode
+    - j/k, arrow keys in PREVIEW mode (stash cycling + diff reload)
+    - j/k, arrow keys, Tab focus toggle, diff scrolling in DETAIL mode
+    - ? help overlay from LIST, PREVIEW, DETAIL modes
+    - Footer "help" hint verification in all modes
+    - Status bar version info (app version + git version)
+    - Focus reset regression: Tab+Esc+re-enter still works
+    - Different stash DETAIL: clean focus state
+  - strip_blank_tail() handles iTerm2 scrollback buffer in screen reads
+  - 34/34 tests passing
+
 ## Task List
 
 | # | Task | Phase | Status | Depends On |
@@ -404,3 +433,6 @@ Phase 5: Polish (v1.0.0) — "Release"
 | 031 | Fix cursor navigation & key routing | Bugfix | DONE | 006, 010 |
 | 032 | Fix terminal background color | Bugfix | DONE | — |
 | 033 | Fix help overlay modal | Bugfix | DONE | 024 |
+| 034 | Fix DETAIL interaction & key routing | Bugfix | DONE | 006, 012 |
+| 035 | Version display & startup banner | Feature | DONE | 006 |
+| 036 | Overhaul iTerm2 E2E tests | Testing | DONE | 034, 035 |
