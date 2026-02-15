@@ -12,6 +12,7 @@ import (
 	"github.com/indrasvat/nidhi/internal/git"
 	"github.com/indrasvat/nidhi/internal/plugin"
 	"github.com/indrasvat/nidhi/internal/plugins/conflict"
+	"github.com/indrasvat/nidhi/internal/plugins/rename"
 	"github.com/indrasvat/nidhi/internal/plugins/undo"
 )
 
@@ -119,6 +120,25 @@ func run() error {
 		_ = keyHandlers.Register(undoPlugin, 100)
 		_ = stashHooks.Register(undoPlugin, 100)
 		logger.Info("registered undo plugin")
+	}
+
+	// Register rename plugin.
+	renamePlugin := rename.New()
+	if err := renamePlugin.Init(pctx); err != nil {
+		logger.Error("failed to init rename plugin", "error", err)
+	} else {
+		_ = keyHandlers.Register(renamePlugin, 100)
+		logger.Info("registered rename plugin")
+	}
+
+	// Recover from any interrupted rename operations.
+	if rename.HasIncompleteOperation() {
+		recovered, recErr := rename.RecoverFromJournal(ctx, runner)
+		if recErr != nil {
+			logger.Error("failed to recover from interrupted rename", "error", recErr)
+		} else if recovered > 0 {
+			logger.Info("recovered stashes from interrupted rename", "count", recovered)
+		}
 	}
 
 	// Create initial state.
