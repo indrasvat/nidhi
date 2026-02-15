@@ -12,6 +12,7 @@ import (
 	"github.com/indrasvat/nidhi/internal/git"
 	"github.com/indrasvat/nidhi/internal/plugin"
 	"github.com/indrasvat/nidhi/internal/plugins/conflict"
+	"github.com/indrasvat/nidhi/internal/plugins/undo"
 )
 
 // Build metadata injected via ldflags at compile time.
@@ -108,6 +109,16 @@ func run() error {
 		_ = screenProviders.Register(conflictPlugin, 100)
 		_ = stashHooks.Register(conflictPlugin, 100)
 		logger.Info("registered conflict preview plugin")
+	}
+
+	// Register undo & recovery plugin.
+	undoPlugin := undo.New()
+	if err := undoPlugin.Init(pctx); err != nil {
+		logger.Error("failed to init undo plugin", "error", err)
+	} else {
+		_ = keyHandlers.Register(undoPlugin, 100)
+		_ = stashHooks.Register(undoPlugin, 100)
+		logger.Info("registered undo plugin")
 	}
 
 	// Create initial state.
