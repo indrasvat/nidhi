@@ -78,6 +78,15 @@ func (d *DetailScreen) Focused() FocusedPane {
 	return d.focused
 }
 
+// ResetFocus resets keyboard focus to the tree pane and tree cursor to the first file.
+// Called when entering DETAIL mode to ensure a clean start.
+func (d *DetailScreen) ResetFocus() {
+	d.focused = PaneTree
+	d.tree.ResetCursor()
+	d.selectFirstFile()
+	d.updateDiffForSelected()
+}
+
 // Update handles messages for the DETAIL screen.
 func (d *DetailScreen) Update(msg tea.Msg, state core.AppState) (core.AppState, tea.Cmd) {
 	switch msg := msg.(type) {

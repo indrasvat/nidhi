@@ -181,6 +181,11 @@ func (m *FileTreeModel) Cursor() int {
 	return m.cursor
 }
 
+// ResetCursor moves the cursor back to position 0.
+func (m *FileTreeModel) ResetCursor() {
+	m.cursor = 0
+}
+
 // FileCount returns the total number of files across all categories.
 func (m *FileTreeModel) FileCount() int {
 	return len(m.Staged) + len(m.Working) + len(m.Untracked)

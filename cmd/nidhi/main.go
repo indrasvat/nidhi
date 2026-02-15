@@ -574,8 +574,9 @@ func (u *uiRenderer) OnModeChange(prev, next core.Mode, state core.AppState) tea
 	case core.ModePreview:
 		return u.preview.EnsureDiffLoaded(state)
 	case core.ModeDetail:
-		// If entering detail from preview, the diff is already loaded.
-		// If from list, trigger a diff load.
+		u.detail.ResetFocus()
+		// If entering detail from list, trigger a diff load.
+		// From preview, the diff is already loaded.
 		if prev == core.ModeList {
 			return u.preview.EnsureDiffLoaded(state)
 		}
