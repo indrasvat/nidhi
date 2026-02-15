@@ -11,6 +11,7 @@ import (
 	"github.com/indrasvat/nidhi/internal/core"
 	"github.com/indrasvat/nidhi/internal/git"
 	"github.com/indrasvat/nidhi/internal/plugin"
+	"github.com/indrasvat/nidhi/internal/plugins/conflict"
 )
 
 // Build metadata injected via ldflags at compile time.
@@ -94,10 +95,20 @@ func run() error {
 		return fmt.Errorf("creating plugin context: %w", err)
 	}
 
-	// Create registries.
+	// Create registries and register built-in plugins.
 	keyHandlers := plugin.NewRegistry[plugin.KeyHandler]()
 	screenProviders := plugin.NewRegistry[plugin.ScreenProvider]()
 	stashHooks := plugin.NewRegistry[plugin.StashHook]()
+
+	// Register conflict preview plugin.
+	conflictPlugin := conflict.New()
+	if err := conflictPlugin.Init(pctx); err != nil {
+		logger.Error("failed to init conflict plugin", "error", err)
+	} else {
+		_ = screenProviders.Register(conflictPlugin, 100)
+		_ = stashHooks.Register(conflictPlugin, 100)
+		logger.Info("registered conflict preview plugin")
+	}
 
 	// Create initial state.
 	state := core.NewAppState(workDir, branch, pluginGitVer)

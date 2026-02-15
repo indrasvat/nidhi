@@ -51,3 +51,23 @@ func NewFilterChangedEvent(filters []plugin.Filter) plugin.Event {
 func NewErrorEvent(operation string, err error) plugin.Event {
 	return plugin.Event{Type: EventError, Payload: ErrorPayload{Operation: operation, Err: err}}
 }
+
+// ─── tea.Msg types for plugin→core communication ────────────
+
+// InfoToastMsg triggers an informational toast notification.
+type InfoToastMsg struct {
+	Text string
+}
+
+// ErrorMsg wraps an error as a tea.Msg.
+type ErrorMsg struct {
+	Err error
+}
+
+// StashMutatedMsg signals that the stash list changed and cache must be invalidated.
+type StashMutatedMsg struct{}
+
+// PromptBranchNameMsg signals that the user should be prompted for a branch name.
+type PromptBranchNameMsg struct {
+	Stash plugin.Stash
+}
