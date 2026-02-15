@@ -21,7 +21,7 @@ Phase 2: Safety Net (v0.2.0) — "No Fear"
 
 #### Phase 2: Safety Net (v0.2.0) — "No Fear"
 - [x] Conflict preview plugin (merge-tree dry-run, conflict screen)
-- [ ] Undo plugin (toast, z-key recovery, reflog fallback)
+- [x] Undo plugin (toast, z-key recovery, reflog fallback)
 - [ ] Rename plugin (inline rename with drop+store)
 - [ ] New stash screen (message-first, scope toggles, keep-index)
 
@@ -143,6 +143,16 @@ Phase 2: Safety Net (v0.2.0) — "No Fear"
   - 22 conflict plugin tests (3 integration, 19 unit), 78.6% coverage
   - 600 total tests passing, 0 lint issues
 
+- Implemented task 016: Undo & recovery plugin
+  - internal/plugins/undo/ringbuffer.go: goroutine-safe LIFO ring buffer (50 entries), UndoEntry with IsExpired
+  - internal/plugins/undo/recovery.go: FindDroppedStashes via git fsck --unreachable --no-reflogs, RestoreCandidate via git stash store
+  - internal/plugins/undo/undo.go: Plugin implementing StashHook + KeyHandler
+  - AfterDrop: records entry in ring buffer, triggers UndoToastMsg + tea.Tick expiration (30s TTL)
+  - HandleKey("z"): recent entry → instant session undo, else → cross-session recovery picker via git fsck
+  - Message types: UndoToastMsg, UndoToastExpiredMsg, OpenRecoveryPickerMsg
+  - 21 undo plugin tests: ring buffer ops, integration drop/restore, recovery scanning, plugin interface
+  - 623 total tests passing, 0 lint issues, 78.2% undo plugin coverage
+
 ## Task List
 
 | # | Task | Phase | Status | Depends On |
@@ -163,7 +173,7 @@ Phase 2: Safety Net (v0.2.0) — "No Fear"
 | 013 | Stash CRUD operations | P1 | DONE | 001, 004 |
 | 014 | Phase 1 integration & E2E | P1 | DONE | 010-013 |
 | 015 | Conflict preview plugin | P2 | DONE | 013, 006 |
-| 016 | Undo plugin | P2 | TODO | 013, 007 |
+| 016 | Undo plugin | P2 | DONE | 013, 007 |
 | 017 | Rename plugin | P2 | TODO | 013, 008 |
 | 018 | New stash screen | P2 | TODO | 013, 006 |
 | 019 | Phase 2 integration & E2E | P2 | TODO | 015-018 |
