@@ -22,7 +22,7 @@ Phase 2: Safety Net (v0.2.0) — "No Fear"
 #### Phase 2: Safety Net (v0.2.0) — "No Fear"
 - [x] Conflict preview plugin (merge-tree dry-run, conflict screen)
 - [x] Undo plugin (toast, z-key recovery, reflog fallback)
-- [ ] Rename plugin (inline rename with drop+store)
+- [x] Rename plugin (inline rename with drop+store)
 - [ ] New stash screen (message-first, scope toggles, keep-index)
 
 #### Phase 3: Power User (v0.3.0) — "Master of Stashes"
@@ -153,6 +153,16 @@ Phase 2: Safety Net (v0.2.0) — "No Fear"
   - 21 undo plugin tests: ring buffer ops, integration drop/restore, recovery scanning, plugin interface
   - 623 total tests passing, 0 lint issues, 78.2% undo plugin coverage
 
+- Implemented task 017: Rename plugin with reorder journal
+  - internal/plugins/rename/journal.go: crash-safe JSON journal for reorder operations (XDG state dir)
+  - internal/plugins/rename/rename.go: Plugin implementing KeyHandler for 'r' key
+  - RenameStash: simple drop+store for stash@{0}, multi-step reorder for deeper stashes
+  - Journal written before operations, cleaned up on success, enables recovery on startup
+  - RecoverFromJournal: restores stashes from interrupted rename operations
+  - All SHAs preserved across renames (including reorder)
+  - 13 rename plugin tests: journal ops, integration rename flows, SHA preservation, recovery
+  - 636 total tests passing, 0 lint issues, 79.6% rename plugin coverage
+
 ## Task List
 
 | # | Task | Phase | Status | Depends On |
@@ -174,7 +184,7 @@ Phase 2: Safety Net (v0.2.0) — "No Fear"
 | 014 | Phase 1 integration & E2E | P1 | DONE | 010-013 |
 | 015 | Conflict preview plugin | P2 | DONE | 013, 006 |
 | 016 | Undo plugin | P2 | DONE | 013, 007 |
-| 017 | Rename plugin | P2 | TODO | 013, 008 |
+| 017 | Rename plugin | P2 | DONE | 013, 008 |
 | 018 | New stash screen | P2 | TODO | 013, 006 |
 | 019 | Phase 2 integration & E2E | P2 | TODO | 015-018 |
 | 020 | Search plugin | P3 | TODO | 006, 004 |
