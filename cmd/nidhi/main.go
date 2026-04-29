@@ -137,6 +137,14 @@ func run(flags config.CLIFlags) error {
 
 	// Detect current branch.
 	branch, _ := runner.Run(ctx, "rev-parse", "--abbrev-ref", "HEAD")
+	repoInfo := git.RepoInfo{}
+	if gitVer.Supports(git.FeatureRepoInfoKeys) {
+		var repoInfoErr error
+		repoInfo, repoInfoErr = git.LoadRepoInfo(ctx, runner)
+		if repoInfoErr != nil {
+			logger.Debug("failed to load git repo info", "error", repoInfoErr)
+		}
+	}
 	if timing != nil {
 		timing.Since("git detection", gitStart)
 	}
@@ -273,6 +281,13 @@ func run(flags config.CLIFlags) error {
 
 	// Create initial state.
 	state := core.NewAppState(workDir, branch, pluginGitVer)
+	state = core.WithRepoInfo(state, plugin.RepoInfo{
+		Available:        repoInfo.Available,
+		Bare:             repoInfo.Bare,
+		Shallow:          repoInfo.Shallow,
+		ObjectFormat:     repoInfo.ObjectFormat,
+		ReferencesFormat: repoInfo.ReferencesFormat,
+	})
 
 	// Create the model.
 	model := core.New(state, pctx, bus, logger, keyHandlers, screenProviders, stashHooks)
@@ -451,6 +466,7 @@ func (u *uiRenderer) RenderContent(state core.AppState) string {
 		Branch:     state.Branch,
 		StashCount: len(state.Stashes),
 		GitVersion: state.GitVersion,
+		RepoInfo:   state.RepoInfo,
 		AppVersion: u.appVersion,
 		AppCommit:  u.appCommit,
 		Width:      dims.TotalWidth,

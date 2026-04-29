@@ -69,6 +69,7 @@ type AppState struct {
 	GitVersion  GitVersion
 	RepoPath    string
 	Branch      string
+	RepoInfo    RepoInfo
 }
 
 // GitVersion holds parsed git version info for feature gating.
@@ -77,6 +78,15 @@ type GitVersion struct {
 	Minor int
 	Patch int
 	Raw   string
+}
+
+// RepoInfo describes repository metadata surfaced by newer Git versions.
+type RepoInfo struct {
+	Available        bool
+	Bare             bool
+	Shallow          bool
+	ObjectFormat     string
+	ReferencesFormat string
 }
 
 // AtLeast returns true if the git version is >= major.minor.

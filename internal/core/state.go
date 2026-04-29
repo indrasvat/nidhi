@@ -71,6 +71,12 @@ func WithSearchQuery(s AppState, query string) AppState {
 	return s
 }
 
+// WithRepoInfo returns a copy with updated repository metadata.
+func WithRepoInfo(s AppState, info plugin.RepoInfo) AppState {
+	s.RepoInfo = info
+	return s
+}
+
 // SelectedStash returns the currently selected stash, or nil if none.
 func SelectedStash(s AppState) *Stash {
 	if len(s.Stashes) == 0 || s.Cursor < 0 || s.Cursor >= len(s.Stashes) {

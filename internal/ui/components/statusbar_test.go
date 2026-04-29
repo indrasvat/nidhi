@@ -95,6 +95,28 @@ func TestStatusBar_ZeroStashes(t *testing.T) {
 	}
 }
 
+func TestStatusBar_RepoInfo(t *testing.T) {
+	sb := NewStatusBar(theme.NewAgni())
+	rendered := sb.Render(StatusBarParams{
+		RepoName:   "myrepo",
+		Branch:     "main",
+		StashCount: 1,
+		GitVersion: plugin.GitVersion{Major: 2, Minor: 54},
+		RepoInfo: plugin.RepoInfo{
+			Available:        true,
+			ObjectFormat:     "sha256",
+			ReferencesFormat: "reftable",
+		},
+		Width:   120,
+		UseNerd: false,
+	})
+
+	plain := stripAnsi(rendered)
+	if !strings.Contains(plain, "sha256/reftable") {
+		t.Errorf("should show repo format label, got: %q", plain)
+	}
+}
+
 func TestStatusBar_Width(t *testing.T) {
 	sb := NewStatusBar(theme.NewAgni())
 	rendered := sb.Render(StatusBarParams{

@@ -12,12 +12,14 @@ const (
 	FeatureBranchShowCurrent = "branch-show-current"
 	FeatureMergeTree         = "merge-tree"
 	FeatureStashExportImport = "stash-export-import"
+	FeatureRepoInfoKeys      = "repo-info-keys"
 )
 
 var featureMinVersions = map[string]GitVersion{
 	FeatureBranchShowCurrent: {Major: 2, Minor: 22, Patch: 0},
 	FeatureMergeTree:         {Major: 2, Minor: 38, Patch: 0},
 	FeatureStashExportImport: {Major: 2, Minor: 51, Patch: 0},
+	FeatureRepoInfoKeys:      {Major: 2, Minor: 54, Patch: 0},
 }
 
 // GitVersion represents a parsed git version.

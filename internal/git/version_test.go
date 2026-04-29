@@ -101,6 +101,8 @@ func TestGitVersion_Supports(t *testing.T) {
 		{"2.38 supports merge-tree", git.GitVersion{Major: 2, Minor: 38}, git.FeatureMergeTree, true},
 		{"2.50 does not support stash-export-import", git.GitVersion{Major: 2, Minor: 50}, git.FeatureStashExportImport, false},
 		{"2.51 supports stash-export-import", git.GitVersion{Major: 2, Minor: 51}, git.FeatureStashExportImport, true},
+		{"2.53 does not support repo-info-keys", git.GitVersion{Major: 2, Minor: 53}, git.FeatureRepoInfoKeys, false},
+		{"2.54 supports repo-info-keys", git.GitVersion{Major: 2, Minor: 54}, git.FeatureRepoInfoKeys, true},
 		{"2.21 does not support branch-show-current", git.GitVersion{Major: 2, Minor: 21}, git.FeatureBranchShowCurrent, false},
 		{"unknown feature always false", git.GitVersion{Major: 99, Minor: 99, Patch: 99}, "nonexistent-feature", false},
 	}
