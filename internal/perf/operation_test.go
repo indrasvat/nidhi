@@ -60,10 +60,11 @@ func TestOperationLatency_CursorMove(t *testing.T) {
 
 	t.Logf("Cursor move + render: %v per operation (%d ops in %v)", perOp, iterations, elapsed)
 
-	// Under -race, overhead is ~2-5x. Use 5ms threshold for test;
+	// Under -race, GitHub-hosted runners can add substantial scheduling overhead.
+	// Use a 10ms assertion here to catch major regressions while avoiding CI flakes;
 	// BenchmarkCursorMoveRender (without -race) validates < 1ms.
-	if perOp > 5*time.Millisecond {
-		t.Errorf("cursor move render took %v, target is < 5ms (< 1ms without -race)", perOp)
+	if perOp > 10*time.Millisecond {
+		t.Errorf("cursor move render took %v, target is < 10ms under -race (< 1ms without -race)", perOp)
 	}
 }
 

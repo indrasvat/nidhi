@@ -404,6 +404,7 @@ Phase 5: Polish (v1.0.0) — "Release"
   - VNC testing exposed and fixed screen-provider routing gaps: SEARCH, NEW, sync gate toasts, and conflict/provider messages now render through `uiRenderer`
   - Core key routing now dispatches from `state.Mode`, preventing mode stack drift after plugin-driven mode changes
   - Search now handles text-form special keys from terminal input (`escape`, `tab`) and arrow-key result navigation
+  - CI polish: lint workflow now installs golangci-lint v2 with the Go 1.26 toolchain; race-mode cursor render perf guard widened to avoid GitHub runner scheduling flakes while benchmark coverage still enforces the <1ms non-race target
 
 ## Task List
 
