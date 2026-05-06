@@ -39,7 +39,8 @@ func TestMemory_RSSUnder50MB(t *testing.T) {
 	var after runtime.MemStats
 	runtime.ReadMemStats(&after)
 
-	heapUsed := after.HeapInuse - baseline.HeapInuse
+	heapDelta := int64(after.HeapInuse) - int64(baseline.HeapInuse)
+	heapUsed := uint64(max(heapDelta, 0))
 	totalAlloc := after.TotalAlloc - baseline.TotalAlloc
 
 	t.Logf("Memory with 50 stashes + 10 preloaded diffs:")
