@@ -19,8 +19,8 @@ func TestHintsForMode_ListMode(t *testing.T) {
 		descs[h.Desc] = true
 	}
 
-	// Mockup LIST footer: nav, detail, preview, new, apply, pop, drop, rename, export, search, help.
-	required := []string{"nav", "detail", "preview", "new", "apply", "pop", "drop", "search", "help"}
+	// LIST footer: nav, detail, preview, new, apply, pop, drop, rename, pin, export, search, help.
+	required := []string{"nav", "detail", "preview", "new", "apply", "pop", "drop", "pin", "search", "help"}
 	for _, d := range required {
 		if !descs[d] {
 			t.Errorf("LIST mode missing hint desc %q", d)
@@ -41,6 +41,9 @@ func TestHintsForMode_PreviewMode(t *testing.T) {
 	}
 	if !descs["close"] {
 		t.Error("PREVIEW mode should have 'close' hint for Tab")
+	}
+	if !descs["pin"] {
+		t.Error("PREVIEW mode should have 'pin' hint")
 	}
 }
 

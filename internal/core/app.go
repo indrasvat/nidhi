@@ -181,24 +181,32 @@ func (m *Model) handleKeyPress(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case msg.Text == "c" && msg.Mod.Contains(tea.ModCtrl):
 		return m, tea.Quit
 	case msg.Text == "?":
-		if m.modes.Current() == ModeHelp {
+		if m.state.Mode == ModeHelp {
 			return m, m.popMode()
 		} else {
 			cmd := m.pushMode(ModeHelp)
 			return m, cmd
 		}
-	case msg.Code == tea.KeyEscape:
+	case msg.Code == tea.KeyEscape && (m.state.Mode == m.modes.Current() || m.state.Mode == ModeHelp):
 		return m, m.popMode()
 	}
 
 	// Mode-specific key handling.
-	switch m.modes.Current() {
+	switch m.state.Mode {
 	case ModeList:
 		return m.handleListKeys(msg)
 	case ModePreview:
 		return m.handlePreviewKeys(msg)
 	case ModeDetail:
 		return m.handleDetailKeys(msg)
+	}
+
+	if m.UI != nil {
+		newState, cmd := m.UI.HandleMessage(msg, m.state)
+		m.state = newState
+		if cmd != nil {
+			return m, cmd
+		}
 	}
 
 	return m.delegateToPluginKeyHandlers(msg)
@@ -285,7 +293,7 @@ func (m *Model) delegateToPluginKeyHandlers(msg tea.KeyPressMsg) (tea.Model, tea
 	keyEvent := plugin.KeyEvent{
 		Key:  msg.Text,
 		Mod:  int(msg.Mod),
-		Mode: m.modes.Current(),
+		Mode: m.state.Mode,
 	}
 
 	for _, handler := range m.keyHandlers.All() {
@@ -293,7 +301,7 @@ func (m *Model) delegateToPluginKeyHandlers(msg tea.KeyPressMsg) (tea.Model, tea
 			if kb.Key != msg.Text {
 				continue
 			}
-			if len(kb.Modes) > 0 && !modeInSlice(m.modes.Current(), kb.Modes) {
+			if len(kb.Modes) > 0 && !modeInSlice(m.state.Mode, kb.Modes) {
 				continue
 			}
 			newState, cmd := handler.HandleKey(keyEvent, m.state)

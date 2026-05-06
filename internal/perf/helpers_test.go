@@ -54,20 +54,20 @@ func testRepo(t *testing.T, stashCount int) string {
 // generateGoFile creates a realistic Go source file with ~100 lines.
 func generateGoFile(seed int) string {
 	var b strings.Builder
-	b.WriteString(fmt.Sprintf("package module%d\n\n", seed%10))
-	b.WriteString(fmt.Sprintf("// File%d contains benchmark test content.\n", seed))
-	b.WriteString(fmt.Sprintf("type Handler%d struct {\n", seed))
+	fmt.Fprintf(&b, "package module%d\n\n", seed%10)
+	fmt.Fprintf(&b, "// File%d contains benchmark test content.\n", seed)
+	fmt.Fprintf(&b, "type Handler%d struct {\n", seed)
 	b.WriteString("\tname    string\n")
 	b.WriteString("\tconfig  map[string]interface{}\n")
 	b.WriteString("\tenabled bool\n")
 	b.WriteString("}\n\n")
 
 	for j := range 10 {
-		b.WriteString(fmt.Sprintf("func (h *Handler%d) Process%d(input string) (string, error) {\n", seed, j))
+		fmt.Fprintf(&b, "func (h *Handler%d) Process%d(input string) (string, error) {\n", seed, j)
 		b.WriteString("\tif input == \"\" {\n")
 		b.WriteString("\t\treturn \"\", nil\n")
 		b.WriteString("\t}\n")
-		b.WriteString(fmt.Sprintf("\t// Processing logic for handler %d, method %d\n", seed, j))
+		fmt.Fprintf(&b, "\t// Processing logic for handler %d, method %d\n", seed, j)
 		b.WriteString("\tresult := input + \"_processed\"\n")
 		b.WriteString("\treturn result, nil\n")
 		b.WriteString("}\n\n")

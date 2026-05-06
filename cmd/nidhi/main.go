@@ -170,6 +170,7 @@ func run(flags config.CLIFlags) error {
 	keyHandlers := plugin.NewRegistry[plugin.KeyHandler]()
 	screenProviders := plugin.NewRegistry[plugin.ScreenProvider]()
 	stashHooks := plugin.NewRegistry[plugin.StashHook]()
+	th := theme.NewAgni()
 
 	// Register conflict preview plugin.
 	conflictPlugin := conflict.New()
@@ -201,7 +202,7 @@ func run(flags config.CLIFlags) error {
 	}
 
 	// Register search plugin.
-	searchPlugin := search.New(theme.NewAgni())
+	searchPlugin := search.New(th)
 	if err := searchPlugin.Init(pctx); err != nil {
 		logger.Error("failed to init search plugin", "error", err)
 	} else {
@@ -238,13 +239,22 @@ func run(flags config.CLIFlags) error {
 	}
 
 	// Register export/import sync plugin.
-	syncPlugin := pluginsync.New(theme.NewAgni())
+	syncPlugin := pluginsync.New(th)
 	if err := syncPlugin.Init(pctx); err != nil {
 		logger.Error("failed to init sync plugin", "error", err)
 	} else {
 		_ = keyHandlers.Register(syncPlugin, 100)
 		_ = screenProviders.Register(syncPlugin, 100)
 		logger.Info("registered sync plugin")
+	}
+
+	// Register new stash screen.
+	newStashScreen := screens.NewNewStashScreen(th)
+	if err := newStashScreen.Init(pctx); err != nil {
+		logger.Error("failed to init new stash screen", "error", err)
+	} else {
+		_ = screenProviders.Register(newStashScreen, 100)
+		logger.Info("registered new stash screen")
 	}
 
 	// Recover from any interrupted rename operations.
@@ -278,7 +288,6 @@ func run(flags config.CLIFlags) error {
 	model := core.New(state, pctx, bus, logger, keyHandlers, screenProviders, stashHooks)
 
 	// Wire real UI screens into the core model.
-	th := theme.NewAgni()
 	listScreen := screens.NewListScreen(th)
 	previewScreen := screens.NewPreviewScreen(listScreen, &cacheAdapter{inner: gitCache}, th)
 	detailScreen := screens.NewDetailScreen(th)
@@ -297,6 +306,7 @@ func run(flags config.CLIFlags) error {
 		list:       listScreen,
 		preview:    previewScreen,
 		detail:     detailScreen,
+		newStash:   newStashScreen,
 		help:       helpOverlay,
 		toast:      &toastModel,
 		statusBar:  components.NewStatusBar(th),
@@ -307,6 +317,7 @@ func run(flags config.CLIFlags) error {
 		cache:      &cacheAdapter{inner: gitCache},
 		appVersion: version,
 		appCommit:  commit,
+		screens:    screenProviders,
 	}
 
 	// If --debug, print timing and exit without starting TUI.
@@ -419,11 +430,12 @@ func (a *themeAdapter) Color(_ string) string { return "" }
 // This breaks the circular import: core → ui/screens is not possible,
 // but cmd/nidhi/ can import both core and ui/*.
 type uiRenderer struct {
-	list    *screens.ListScreen
-	preview *screens.PreviewScreen
-	detail  *screens.DetailScreen
-	help    *screens.HelpOverlay
-	toast   *components.ToastModel
+	list     *screens.ListScreen
+	preview  *screens.PreviewScreen
+	detail   *screens.DetailScreen
+	newStash *screens.NewStashScreen
+	help     *screens.HelpOverlay
+	toast    *components.ToastModel
 
 	statusBar components.StatusBar
 	footer    components.Footer
@@ -434,6 +446,7 @@ type uiRenderer struct {
 	cache      plugin.StashCache
 	appVersion string
 	appCommit  string
+	screens    *plugin.Registry[plugin.ScreenProvider]
 }
 
 // RenderWelcome renders the startup welcome screen.
@@ -472,12 +485,18 @@ func (u *uiRenderer) RenderContent(state core.AppState) string {
 		content = u.preview.View(state, dims.ContentWidth, dims.ContentHeight)
 	case core.ModeDetail:
 		content = u.detail.View(state, dims.ContentWidth, dims.ContentHeight)
+	case core.ModeNewStash:
+		content = u.newStash.View(state, dims.ContentWidth, dims.ContentHeight)
 	case core.ModeHelp:
 		// Help renders over the list view background.
 		bg := u.list.View(state, dims.ContentWidth, dims.ContentHeight)
 		content = u.help.RenderWithDimmedBackground(bg, dims.ContentWidth, dims.ContentHeight)
 	default:
-		content = u.list.View(state, dims.ContentWidth, dims.ContentHeight)
+		if provider := u.providerForMode(state.Mode); provider != nil {
+			content = provider.View(state, dims.ContentWidth, dims.ContentHeight)
+		} else {
+			content = u.list.View(state, dims.ContentWidth, dims.ContentHeight)
+		}
 	}
 
 	// Toast overlay (if visible, append to content).
@@ -501,6 +520,19 @@ func (u *uiRenderer) HandleMessage(msg tea.Msg, state core.AppState) (core.AppSt
 		return state, tea.Batch(cmds...)
 	}
 
+	switch msg := msg.(type) {
+	case core.InfoToastMsg:
+		if cmd := u.toast.Show(msg.Text, components.ToastInfo); cmd != nil {
+			cmds = append(cmds, cmd)
+		}
+		return state, tea.Batch(cmds...)
+	case core.ErrorMsg:
+		if cmd := u.toast.Show(msg.Err.Error(), components.ToastError); cmd != nil {
+			cmds = append(cmds, cmd)
+		}
+		return state, tea.Batch(cmds...)
+	}
+
 	// DiffLoadedMsg goes to preview and detail screens.
 	if diffMsg, ok := msg.(screens.DiffLoadedMsg); ok {
 		newState, cmd := u.preview.Update(msg, state)
@@ -511,6 +543,16 @@ func (u *uiRenderer) HandleMessage(msg tea.Msg, state core.AppState) (core.AppSt
 			u.detail.SetDiff(diffMsg.Diff)
 		}
 		return newState, tea.Batch(cmds...)
+	}
+
+	if _, ok := msg.(tea.KeyPressMsg); !ok {
+		newState := state
+		if cmd := u.updateScreenProviders(msg, &newState); cmd != nil {
+			cmds = append(cmds, cmd)
+		}
+		if newState.Mode != state.Mode {
+			return newState, tea.Batch(cmds...)
+		}
 	}
 
 	// Window resize: update all screens.
@@ -524,6 +566,10 @@ func (u *uiRenderer) HandleMessage(msg tea.Msg, state core.AppState) (core.AppSt
 			cmds = append(cmds, cmd)
 		}
 		newState, cmd = u.detail.Update(msg, newState)
+		if cmd != nil {
+			cmds = append(cmds, cmd)
+		}
+		newState, cmd = u.newStash.Update(msg, newState)
 		if cmd != nil {
 			cmds = append(cmds, cmd)
 		}
@@ -556,6 +602,20 @@ func (u *uiRenderer) HandleMessage(msg tea.Msg, state core.AppState) (core.AppSt
 			cmds = append(cmds, cmd)
 		}
 		return newState, tea.Batch(cmds...)
+	case core.ModeNewStash:
+		newState, cmd := u.newStash.Update(msg, state)
+		if cmd != nil {
+			cmds = append(cmds, cmd)
+		}
+		return newState, tea.Batch(cmds...)
+	default:
+		if provider := u.providerForMode(state.Mode); provider != nil {
+			newState, cmd := provider.Update(msg, state)
+			if cmd != nil {
+				cmds = append(cmds, cmd)
+			}
+			return newState, tea.Batch(cmds...)
+		}
 	}
 
 	return state, tea.Batch(cmds...)
@@ -582,6 +642,35 @@ func (u *uiRenderer) OnModeChange(prev, next core.Mode, state core.AppState) tea
 		}
 	}
 	return nil
+}
+
+func (u *uiRenderer) providerForMode(mode core.Mode) plugin.ScreenProvider {
+	if u.screens == nil {
+		return nil
+	}
+	for _, provider := range u.screens.All() {
+		for _, screen := range provider.Screens() {
+			if screen.Mode == mode {
+				return provider
+			}
+		}
+	}
+	return nil
+}
+
+func (u *uiRenderer) updateScreenProviders(msg tea.Msg, state *core.AppState) tea.Cmd {
+	if u.screens == nil {
+		return nil
+	}
+	var cmds []tea.Cmd
+	for _, provider := range u.screens.All() {
+		newState, cmd := provider.Update(msg, *state)
+		*state = newState
+		if cmd != nil {
+			cmds = append(cmds, cmd)
+		}
+	}
+	return tea.Batch(cmds...)
 }
 
 func printUsage() {

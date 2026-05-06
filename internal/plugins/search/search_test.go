@@ -501,6 +501,22 @@ func TestPlugin_Update_EscClosesSearch(t *testing.T) {
 	}
 }
 
+func TestPlugin_Update_TextEscapeClosesSearch(t *testing.T) {
+	p := newTestPlugin(t)
+	p.SetActiveForTest(true)
+	state := plugin.AppState{Mode: plugin.ModeSearch}
+
+	msg := tea.KeyPressMsg{Text: "escape"}
+	newState, _ := p.Update(msg, state)
+
+	if newState.Mode != plugin.ModeList {
+		t.Errorf("expected ModeList after text escape, got %v", newState.Mode)
+	}
+	if p.IsActiveForTest() {
+		t.Error("expected plugin inactive after text escape")
+	}
+}
+
 func TestPlugin_Update_TabCyclesScope(t *testing.T) {
 	p := newTestPlugin(t)
 	p.SetActiveForTest(true)
@@ -537,6 +553,18 @@ func TestPlugin_Update_TabCyclesScope(t *testing.T) {
 	}
 }
 
+func TestPlugin_Update_TextTabCyclesScope(t *testing.T) {
+	p := newTestPlugin(t)
+	p.SetActiveForTest(true)
+	state := plugin.AppState{Mode: plugin.ModeSearch}
+
+	msg := tea.KeyPressMsg{Text: "tab"}
+	p.Update(msg, state)
+	if p.ScopeForTest() != search.ScopeMessages {
+		t.Errorf("expected ScopeMessages after text tab, got %d", p.ScopeForTest())
+	}
+}
+
 func TestPlugin_Update_TextInput(t *testing.T) {
 	p := newTestPlugin(t)
 	p.SetActiveForTest(true)
@@ -557,6 +585,31 @@ func TestPlugin_Update_TextInput(t *testing.T) {
 	p.Update(msg, state)
 	if p.QueryForTest() != "ab" {
 		t.Errorf("expected query 'ab' after backspace, got %q", p.QueryForTest())
+	}
+}
+
+func TestPlugin_Update_ArrowKeysNavigateResults(t *testing.T) {
+	p := newTestPlugin(t)
+	p.SetActiveForTest(true)
+	p.SetResultsForTest([]search.SearchResult{
+		{StashIndex: 0}, {StashIndex: 1}, {StashIndex: 2},
+	})
+
+	state := plugin.AppState{Mode: plugin.ModeSearch}
+
+	p.Update(tea.KeyPressMsg{Code: tea.KeyDown}, state)
+	if p.ResultsCursorForTest() != 1 {
+		t.Errorf("expected cursor 1 after down arrow, got %d", p.ResultsCursorForTest())
+	}
+
+	p.Update(tea.KeyPressMsg{Text: "down"}, state)
+	if p.ResultsCursorForTest() != 2 {
+		t.Errorf("expected cursor 2 after text down, got %d", p.ResultsCursorForTest())
+	}
+
+	p.Update(tea.KeyPressMsg{Code: tea.KeyUp}, state)
+	if p.ResultsCursorForTest() != 1 {
+		t.Errorf("expected cursor 1 after up arrow, got %d", p.ResultsCursorForTest())
 	}
 }
 

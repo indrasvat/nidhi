@@ -46,6 +46,7 @@ func HintsForMode(mode plugin.Mode) []KeyHint {
 			{"p", "pop"},
 			{"d", "drop"},
 			{"r", "rename"},
+			{"m", "pin"},
 			{"e", "export"},
 			{"/", "search"},
 			{"?", "help"},
@@ -58,6 +59,7 @@ func HintsForMode(mode plugin.Mode) []KeyHint {
 			{"\u23CE", "detail"},
 			{"a", "apply"},
 			{"p", "pop"},
+			{"m", "pin"},
 			{"?", "help"},
 		}
 	case plugin.ModeDetail:

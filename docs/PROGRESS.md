@@ -395,6 +395,16 @@ Phase 5: Polish (v1.0.0) — "Release"
   - strip_blank_tail() handles iTerm2 scrollback buffer in screen reads
   - 34/34 tests passing
 
+### 2026-05-06
+- Implemented task 038: Session pin markers for quick visual tracking
+  - LIST and PREVIEW mode now support `m` to mark/unmark the selected stash without changing Git state
+  - Stash rows reserve a fixed star column, so pin markers do not shift indexes, SHAs, messages, ages, or row padding
+  - Footer hints, README keybinds, and man page keybinds document the new `m` action
+  - Added unit tests for row marker rendering, LIST pin toggling, pinned marker rendering, PREVIEW delegation, and footer hints
+  - VNC testing exposed and fixed screen-provider routing gaps: SEARCH, NEW, sync gate toasts, and conflict/provider messages now render through `uiRenderer`
+  - Core key routing now dispatches from `state.Mode`, preventing mode stack drift after plugin-driven mode changes
+  - Search now handles text-form special keys from terminal input (`escape`, `tab`) and arrow-key result navigation
+
 ## Task List
 
 | # | Task | Phase | Status | Depends On |
@@ -436,3 +446,4 @@ Phase 5: Polish (v1.0.0) — "Release"
 | 034 | Fix DETAIL interaction & key routing | Bugfix | DONE | 006, 012 |
 | 035 | Version display & startup banner | Feature | DONE | 006 |
 | 036 | Overhaul iTerm2 E2E tests | Testing | DONE | 034, 035 |
+| 038 | Session pin markers | Feature | DONE | 010, 011 |

@@ -16,6 +16,7 @@ import (
 type StashRowParams struct {
 	Stash      plugin.Stash
 	Selected   bool      // True if this row has the cursor.
+	Pinned     bool      // True if this row is marked for quick visual tracking.
 	Width      int       // Available width for the row.
 	UseNerd    bool      // Whether to use Nerd Font icons.
 	TotalCount int       // Total number of stashes (for progressive dimming).
@@ -46,6 +47,7 @@ func (r StashRowRenderer) Render(p StashRowParams) string {
 		msgFg   color.Color
 		indexFg color.Color
 		shaFg   color.Color
+		pinFg   color.Color
 		ageFg   = th.FgSecondary()
 		statFg  color.Color
 	)
@@ -56,18 +58,20 @@ func (r StashRowRenderer) Render(p StashRowParams) string {
 		msgFg = th.FgPrimary()
 		indexFg = th.AccentBright()
 		shaFg = th.SemanticPurple()
+		pinFg = th.AccentBright()
 		statFg = th.FgSecondary()
 	} else {
 		bgColor = th.BgDeep()
 		msgFg = blendColor(th.FgPrimary(), th.FgDimmed(), dimFactor)
 		indexFg = blendColor(th.FgSecondary(), th.FgDimmed(), dimFactor)
 		shaFg = blendColor(th.SemanticPurple(), th.FgDimmed(), dimFactor)
+		pinFg = th.AccentGold()
 		statFg = blendColor(th.FgSecondary(), th.FgDimmed(), dimFactor)
 	}
 
 	// ── Row elements ────────────────────────────────────
-	// Layout: [cursor 2] [index 4] [sha 9] [message ...] [age right-aligned]
-	// Line 2: [spacing 15] [branch + diff stat + file count]
+	// Layout: [cursor 2] [pin 2] [index 4] [sha 9] [message ...] [age right-aligned]
+	// Line 2: [spacing 17] [branch + diff stat + file count]
 
 	// Cursor indicator.
 	var cursor string
@@ -80,6 +84,17 @@ func (r StashRowRenderer) Render(p StashRowParams) string {
 	} else {
 		cursor = lipgloss.NewStyle().Background(bgColor).Render("  ")
 	}
+
+	// Session pin marker.
+	pinStyle := lipgloss.NewStyle().
+		Foreground(pinFg).
+		Background(bgColor).
+		Bold(p.Pinned)
+	pinText := "  "
+	if p.Pinned {
+		pinText = "\u2605 " // ★
+	}
+	pinRendered := pinStyle.Render(pinText)
 
 	// Index.
 	indexStr := fmt.Sprintf("%d", p.Stash.Index)
@@ -115,7 +130,7 @@ func (r StashRowRenderer) Render(p StashRowParams) string {
 		Background(bgColor)
 
 	// Compute available width for message.
-	fixedWidth := 2 + 4 + 9 // cursor + index + sha
+	fixedWidth := 2 + 2 + 4 + 9 // cursor + pin + index + sha
 	ageWidth := lipgloss.Width(age) + 2
 	msgMaxWidth := max(p.Width-fixedWidth-ageWidth, 5)
 
@@ -130,7 +145,7 @@ func (r StashRowRenderer) Render(p StashRowParams) string {
 	msgRendered := msgStyle.Render(message)
 
 	// Compute spacing between message and age.
-	line1ContentWidth := 2 + 4 + 9 + lipgloss.Width(message)
+	line1ContentWidth := fixedWidth + lipgloss.Width(message)
 	gap := max(p.Width-line1ContentWidth-ageWidth, 0)
 	spacing := lipgloss.NewStyle().
 		Background(bgColor).
@@ -141,7 +156,7 @@ func (r StashRowRenderer) Render(p StashRowParams) string {
 		ageStyle.Render(age) +
 		lipgloss.NewStyle().Background(bgColor).Render(" ")
 
-	line1 := cursor + indexRendered + shaRendered + msgRendered + spacing + ageRendered
+	line1 := cursor + pinRendered + indexRendered + shaRendered + msgRendered + spacing + ageRendered
 
 	// Stale badge (appended to line 1 if stale).
 	if p.Stash.IsStale {
@@ -167,7 +182,7 @@ func (r StashRowRenderer) Render(p StashRowParams) string {
 	// Second line indentation (align with message column).
 	indent := lipgloss.NewStyle().
 		Background(bgColor).
-		Width(15).
+		Width(fixedWidth).
 		Render("")
 
 	// Branch.

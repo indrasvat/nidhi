@@ -117,18 +117,18 @@ func (p *Plugin) Update(msg tea.Msg, state plugin.AppState) (plugin.AppState, te
 
 func (p *Plugin) handleKey(msg tea.KeyPressMsg, state plugin.AppState) (plugin.AppState, tea.Cmd) {
 	switch {
-	case msg.Code == tea.KeyEscape:
+	case msg.Code == tea.KeyEscape || msg.Text == "escape":
 		p.active = false
 		state.Mode = plugin.ModeList
 		return state, nil
 
-	case msg.Code == tea.KeyTab:
+	case msg.Code == tea.KeyTab || msg.Text == "tab":
 		// Cycle scope: All -> Messages -> Files -> Diffs -> Branch -> All.
 		p.scope = (p.scope + 1) % 5
 		p.rerunSearch()
 		return state, nil
 
-	case msg.Code == tea.KeyEnter:
+	case msg.Code == tea.KeyEnter || msg.Text == "enter":
 		if len(p.results) > 0 && p.resCur < len(p.results) {
 			result := p.results[p.resCur]
 			state.Cursor = result.StashIndex
@@ -140,6 +140,18 @@ func (p *Plugin) handleKey(msg tea.KeyPressMsg, state plugin.AppState) (plugin.A
 				state.Mode = plugin.ModeList
 			}
 			return state, nil
+		}
+		return state, nil
+
+	case msg.Text == "down" || msg.Code == tea.KeyDown:
+		if p.resCur < len(p.results)-1 {
+			p.resCur++
+		}
+		return state, nil
+
+	case msg.Text == "up" || msg.Code == tea.KeyUp:
+		if p.resCur > 0 {
+			p.resCur--
 		}
 		return state, nil
 
