@@ -1,6 +1,7 @@
 package screens
 
 import (
+	"context"
 	"strings"
 	"testing"
 
@@ -354,6 +355,71 @@ func TestNewStashScreen_FileCountsMsg(t *testing.T) {
 	_ = state
 }
 
+func TestNewStashScreen_StashCreatedMsgRefreshesState(t *testing.T) {
+	s := newTestNewStash()
+	s.SetMessageForTest("pending work")
+	state := core.AppState{
+		Mode:   core.ModeNewStash,
+		Cursor: 4,
+		Stashes: []core.Stash{
+			{Index: 0, Message: "old"},
+		},
+	}
+	fresh := []core.Stash{
+		{Index: 0, SHA: "new", Message: "new stash"},
+		{Index: 1, SHA: "old", Message: "old stash"},
+	}
+
+	newState, cmd := s.Update(StashCreatedMsg{Stashes: fresh}, state)
+	if cmd != nil {
+		t.Fatal("StashCreatedMsg should not return a command")
+	}
+	if newState.Mode != core.ModeList {
+		t.Fatalf("mode = %v, want %v", newState.Mode, core.ModeList)
+	}
+	if len(newState.Stashes) != len(fresh) {
+		t.Fatalf("stashes len = %d, want %d", len(newState.Stashes), len(fresh))
+	}
+	if newState.Stashes[0].Message != "new stash" {
+		t.Fatalf("first stash = %q, want %q", newState.Stashes[0].Message, "new stash")
+	}
+	if newState.Cursor != len(fresh)-1 {
+		t.Fatalf("cursor = %d, want %d", newState.Cursor, len(fresh)-1)
+	}
+	if s.MessageForTest() != "" {
+		t.Fatalf("message was not reset: %q", s.MessageForTest())
+	}
+}
+
+func TestNewStashScreen_CreateStashReloadsCache(t *testing.T) {
+	s := newTestNewStash()
+	fresh := []core.Stash{{Index: 0, SHA: "abc", Message: "fresh stash"}}
+	cache := &newStashTestCache{stashes: fresh}
+	runner := &newStashTestRunner{
+		outputs: map[string]string{
+			"status --porcelain":      " M file.go\n",
+			"stash push --keep-index": "",
+		},
+	}
+	s.git = runner
+	s.cache = cache
+
+	msg := s.createStash()()
+	created, ok := msg.(StashCreatedMsg)
+	if !ok {
+		t.Fatalf("message = %T, want StashCreatedMsg", msg)
+	}
+	if !cache.invalidated {
+		t.Fatal("cache was not invalidated")
+	}
+	if !cache.listed {
+		t.Fatal("cache.List was not called after create")
+	}
+	if len(created.Stashes) != 1 || created.Stashes[0].Message != "fresh stash" {
+		t.Fatalf("created stashes = %#v", created.Stashes)
+	}
+}
+
 func TestNewStashScreen_EnterCreatesCmd(t *testing.T) {
 	s := newTestNewStash()
 	// Need git and cache for createStash.
@@ -369,4 +435,53 @@ func TestNewStashScreen_EnterCreatesCmd(t *testing.T) {
 	if cmd == nil {
 		t.Fatal("expected non-nil cmd from Enter in message focus")
 	}
+}
+
+type newStashTestRunner struct {
+	outputs map[string]string
+	calls   []string
+}
+
+func (r *newStashTestRunner) Run(_ context.Context, args ...string) (string, error) {
+	key := strings.Join(args, " ")
+	r.calls = append(r.calls, key)
+	return r.outputs[key], nil
+}
+
+func (r *newStashTestRunner) RunLines(ctx context.Context, args ...string) ([]string, error) {
+	out, err := r.Run(ctx, args...)
+	if err != nil {
+		return nil, err
+	}
+	if out == "" {
+		return nil, nil
+	}
+	return strings.Split(strings.TrimRight(out, "\n"), "\n"), nil
+}
+
+func (r *newStashTestRunner) RunExitCode(ctx context.Context, args ...string) (string, int, error) {
+	out, err := r.Run(ctx, args...)
+	if err != nil {
+		return out, 1, err
+	}
+	return out, 0, nil
+}
+
+type newStashTestCache struct {
+	stashes     []core.Stash
+	invalidated bool
+	listed      bool
+}
+
+func (c *newStashTestCache) List(_ context.Context) ([]core.Stash, error) {
+	c.listed = true
+	return c.stashes, nil
+}
+
+func (c *newStashTestCache) Diff(_ context.Context, _ string) (string, error) {
+	return "", nil
+}
+
+func (c *newStashTestCache) Invalidate() {
+	c.invalidated = true
 }

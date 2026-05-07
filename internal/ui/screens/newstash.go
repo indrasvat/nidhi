@@ -57,7 +57,9 @@ type FileCountsMsg struct {
 }
 
 // StashCreatedMsg signals successful stash creation.
-type StashCreatedMsg struct{}
+type StashCreatedMsg struct {
+	Stashes []plugin.Stash
+}
 
 // StashCreateErrorMsg signals a stash creation error.
 type StashCreateErrorMsg struct {
@@ -138,6 +140,10 @@ func (s *NewStashScreen) Update(msg tea.Msg, state plugin.AppState) (plugin.AppS
 		return state, nil
 
 	case StashCreatedMsg:
+		state.Stashes = msg.Stashes
+		if state.Cursor >= len(state.Stashes) {
+			state.Cursor = max(0, len(state.Stashes)-1)
+		}
 		state.Mode = plugin.ModeList
 		s.reset()
 		return state, nil
@@ -366,7 +372,11 @@ func (s *NewStashScreen) createStash() tea.Cmd {
 		}
 
 		s.cache.Invalidate()
-		return StashCreatedMsg{}
+		stashes, err := s.cache.List(ctx)
+		if err != nil {
+			return StashCreateErrorMsg{Err: fmt.Errorf("reload stashes after create: %w", err)}
+		}
+		return StashCreatedMsg{Stashes: stashes}
 	}
 }
 
