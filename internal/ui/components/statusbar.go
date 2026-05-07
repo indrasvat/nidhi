@@ -17,6 +17,7 @@ type StatusBarParams struct {
 	Branch     string
 	StashCount int
 	GitVersion plugin.GitVersion
+	RepoInfo   plugin.RepoInfo
 	AppVersion string // e.g., "dev", "v0.1.0"
 	AppCommit  string // e.g., "abc1234"
 	Width      int
@@ -80,6 +81,9 @@ func (sb StatusBar) Render(p StatusBarParams) string {
 		versionParts = append(versionParts, appVer)
 	}
 	versionParts = append(versionParts, fmt.Sprintf("git %d.%d", p.GitVersion.Major, p.GitVersion.Minor))
+	if format := repoFormatLabel(p.RepoInfo); format != "" {
+		versionParts = append(versionParts, format)
+	}
 	right := versionStyle.Render(strings.Join(versionParts, " \u00b7 "))
 
 	// Compute spacing between left and right.
@@ -91,6 +95,28 @@ func (sb StatusBar) Render(p StatusBarParams) string {
 		Render(strings.Repeat(" ", gap))
 
 	return barStyle.Render(left + spacing + right)
+}
+
+func repoFormatLabel(info plugin.RepoInfo) string {
+	if !info.Available {
+		return ""
+	}
+
+	var parts []string
+	if info.ObjectFormat != "" {
+		parts = append(parts, info.ObjectFormat)
+	}
+	if info.ReferencesFormat != "" {
+		parts = append(parts, info.ReferencesFormat)
+	}
+	if info.Shallow {
+		parts = append(parts, "shallow")
+	}
+	if info.Bare {
+		parts = append(parts, "bare")
+	}
+
+	return strings.Join(parts, "/")
 }
 
 // styledFgBg creates a style with foreground and background colors.

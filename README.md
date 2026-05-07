@@ -22,6 +22,7 @@ nidhi turns `git stash` from a write-and-forget black hole into a visible, searc
 - **Conflict preview**: Dry-run `git merge-tree` before applying -- see conflicts before they happen
 - **Deep fuzzy search**: Search across stash messages, filenames, and diff content
 - **Export/Import**: Share stashes across machines via `git stash export/import` (Git 2.51+)
+- **Repo format awareness**: Shows Git 2.54+ repository metadata such as object and reference formats
 - **Inline rename**: Give stashes meaningful names without losing them
 - **Undo drops**: Every drop is recoverable -- `z` to undo, reflog fallback for older drops
 - **Stale detection**: Stashes older than 14 days get a `STALE` badge

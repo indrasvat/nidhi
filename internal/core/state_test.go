@@ -127,3 +127,15 @@ func TestWithSearchQuery(t *testing.T) {
 		t.Errorf("SearchQuery = %q", s.SearchQuery)
 	}
 }
+
+func TestWithRepoInfo(t *testing.T) {
+	info := plugin.RepoInfo{
+		Available:        true,
+		ObjectFormat:     "sha1",
+		ReferencesFormat: "files",
+	}
+	s := WithRepoInfo(NewAppState("/repo", "main", GitVersion{}), info)
+	if !s.RepoInfo.Available || s.RepoInfo.ObjectFormat != "sha1" || s.RepoInfo.ReferencesFormat != "files" {
+		t.Errorf("RepoInfo = %+v", s.RepoInfo)
+	}
+}
