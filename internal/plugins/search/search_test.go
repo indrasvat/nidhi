@@ -734,9 +734,6 @@ func TestPlugin_View_EmptyState(t *testing.T) {
 	if !strings.Contains(view, "/") {
 		t.Error("expected '/' prompt in view")
 	}
-	if !strings.Contains(view, "Esc: close") {
-		t.Error("expected footer hints in view")
-	}
 }
 
 func TestPlugin_View_WithQuery(t *testing.T) {

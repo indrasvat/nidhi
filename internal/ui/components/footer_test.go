@@ -130,6 +130,59 @@ func TestFooter_DetailModeBadge(t *testing.T) {
 	}
 }
 
+func TestFooter_NarrowWidthPreservesBadgeAndHelp(t *testing.T) {
+	// At narrow widths the LIST footer (12 hints) overflows. The mode badge
+	// and the "?" help hint must still be visible so users know where they
+	// are and how to reach help. Mid-priority hints (rename, export, …) may
+	// be elided.
+	f := NewFooter(theme.NewAgni())
+	rendered := f.Render(FooterParams{
+		Mode:  plugin.ModeList,
+		Width: 80,
+	})
+	plain := stripAnsi(rendered)
+
+	if !strings.Contains(plain, "LIST") {
+		t.Errorf("narrow LIST footer should keep mode badge, got: %q", plain)
+	}
+	if !strings.Contains(plain, "help") {
+		t.Errorf("narrow LIST footer should keep '?' help hint, got: %q", plain)
+	}
+	if !strings.Contains(plain, "j/k") {
+		t.Errorf("narrow LIST footer should keep first hint 'j/k', got: %q", plain)
+	}
+}
+
+func TestFooter_VeryNarrowWidthKeepsBadge(t *testing.T) {
+	// Below the size where any hint fits, only the mode badge needs to survive.
+	f := NewFooter(theme.NewAgni())
+	rendered := f.Render(FooterParams{
+		Mode:  plugin.ModePreview,
+		Width: 20,
+	})
+	plain := stripAnsi(rendered)
+
+	if !strings.Contains(plain, "PREVIEW") {
+		t.Errorf("very narrow PREVIEW footer should keep mode badge, got: %q", plain)
+	}
+}
+
+func TestFooter_FullWidthShowsAllHints(t *testing.T) {
+	// At wide terminals all hints should be present (no elision).
+	f := NewFooter(theme.NewAgni())
+	rendered := f.Render(FooterParams{
+		Mode:  plugin.ModeList,
+		Width: 200,
+	})
+	plain := stripAnsi(rendered)
+
+	for _, want := range []string{"nav", "detail", "preview", "rename", "export", "search", "help", "LIST"} {
+		if !strings.Contains(plain, want) {
+			t.Errorf("wide LIST footer missing %q, got: %q", want, plain)
+		}
+	}
+}
+
 func TestBadgeColorForMode_ReturnsNonNilColors(t *testing.T) {
 	th := theme.NewAgni()
 	modes := []plugin.Mode{

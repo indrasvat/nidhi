@@ -141,6 +141,7 @@ func (f Footer) Render(p FooterParams) string {
 		Bold(true)
 
 	descStyle := styledFgBg(th.FgSecondary(), th.BgSurface())
+	spaceStyle := styledFgBg(th.BgSurface(), th.BgSurface())
 
 	// Mode badge with mode-specific colors matching mockup .fmode-* classes.
 	badgeFg, badgeBg := badgeColorsForMode(p.Mode, th)
@@ -151,31 +152,79 @@ func (f Footer) Render(p FooterParams) string {
 		PaddingLeft(1).
 		PaddingRight(1)
 
-	// Build hints.
-	hints := HintsForMode(p.Mode)
-	var hintsStr string
-	sep := styledFgBg(th.BgSurface(), th.BgSurface()).Render(" ")
-	for i, h := range hints {
-		if i > 0 {
-			hintsStr += sep
-		}
-		hintsStr += keyStyle.Render(h.Key) +
-			styledFgBg(th.BgSurface(), th.BgSurface()).Render(" ") +
-			descStyle.Render(h.Desc)
+	badge := badgeStyle.Render(p.Mode.String())
+	badgeWidth := lipgloss.Width(badge)
+
+	// Reserve room for: leading space + min gap (1) + badge.
+	avail := p.Width - badgeWidth - 2
+	if avail < 0 {
+		avail = 0
 	}
 
-	// Mode badge (right-aligned).
-	badge := badgeStyle.Render(p.Mode.String())
+	hints := HintsForMode(p.Mode)
+	hintsStr := buildHints(hints, avail, keyStyle, descStyle, spaceStyle)
 
-	// Compute spacing.
 	hintsWidth := lipgloss.Width(hintsStr)
-	badgeWidth := lipgloss.Width(badge)
 	gap := max(p.Width-hintsWidth-badgeWidth-2, 1)
-	spacing := styledFgBg(th.BgSurface(), th.BgSurface()).
-		Width(gap).
-		Render("")
+	spacing := spaceStyle.Width(gap).Render("")
 
 	return barStyle.Render(" " + hintsStr + spacing + badge)
+}
+
+// buildHints renders the hint string, eliding mid-priority hints when the
+// total exceeds maxWidth. The first hint and the "?" help hint are always
+// preserved when present, so the mode badge and help affordance survive
+// narrow terminals (PRD §9.3, 80×24 minimum).
+func buildHints(hints []KeyHint, maxWidth int, keyStyle, descStyle, spaceStyle lipgloss.Style) string {
+	if len(hints) == 0 {
+		return ""
+	}
+
+	sep := spaceStyle.Render(" ")
+	render := func(h KeyHint) string {
+		return keyStyle.Render(h.Key) + sep + descStyle.Render(h.Desc)
+	}
+	join := func(hs []KeyHint) string {
+		var s string
+		for i, h := range hs {
+			if i > 0 {
+				s += sep
+			}
+			s += render(h)
+		}
+		return s
+	}
+
+	keep := append([]KeyHint(nil), hints...)
+	if lipgloss.Width(join(keep)) <= maxWidth {
+		return join(keep)
+	}
+
+	// Drop mid-priority hints from the right, preserving index 0 and "?" help.
+	for lipgloss.Width(join(keep)) > maxWidth && len(keep) > 1 {
+		dropIdx := -1
+		for i := len(keep) - 1; i > 0; i-- {
+			if keep[i].Key != "?" {
+				dropIdx = i
+				break
+			}
+		}
+		if dropIdx == -1 {
+			break
+		}
+		keep = append(keep[:dropIdx], keep[dropIdx+1:]...)
+	}
+
+	// If still over budget, drop the help hint as a last resort.
+	if lipgloss.Width(join(keep)) > maxWidth && len(keep) > 1 {
+		keep = keep[:1]
+	}
+
+	// If a single hint still does not fit, return empty so the badge survives.
+	if lipgloss.Width(join(keep)) > maxWidth {
+		return ""
+	}
+	return join(keep)
 }
 
 // badgeColorsForMode returns the foreground and background colors for the mode badge.

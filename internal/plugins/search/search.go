@@ -332,11 +332,6 @@ func (p *Plugin) View(state plugin.AppState, width, height int) string {
 		}
 	}
 
-	// Footer hints.
-	b.WriteString("\n")
-	hints := dimStyle.Render("  Tab: scope  Ctrl+N/P: navigate  Enter: jump  Esc: close")
-	b.WriteString(hints)
-
 	return b.String()
 }
 
