@@ -57,7 +57,9 @@ type FileCountsMsg struct {
 }
 
 // StashCreatedMsg signals successful stash creation.
-type StashCreatedMsg struct{}
+type StashCreatedMsg struct {
+	Stashes []plugin.Stash
+}
 
 // StashCreateErrorMsg signals a stash creation error.
 type StashCreateErrorMsg struct {
@@ -138,6 +140,10 @@ func (s *NewStashScreen) Update(msg tea.Msg, state plugin.AppState) (plugin.AppS
 		return state, nil
 
 	case StashCreatedMsg:
+		state.Stashes = msg.Stashes
+		if state.Cursor >= len(state.Stashes) {
+			state.Cursor = max(0, len(state.Stashes)-1)
+		}
 		state.Mode = plugin.ModeList
 		s.reset()
 		return state, nil
@@ -154,14 +160,14 @@ func (s *NewStashScreen) handleKey(msg tea.KeyPressMsg, state plugin.AppState) (
 	// Handle text input when message field is focused.
 	if s.focus == FocusMessage {
 		switch {
-		case msg.Text == "tab":
+		case msg.Text == "tab", msg.Code == tea.KeyTab:
 			s.focus = FocusScopes
 			return state, nil
-		case msg.Text == "escape":
+		case msg.Text == "escape", msg.Code == tea.KeyEscape:
 			state.Mode = plugin.ModeList
 			s.reset()
 			return state, nil
-		case msg.Text == "enter":
+		case msg.Text == "enter", msg.Code == tea.KeyEnter:
 			return state, s.createStash()
 		case msg.Text == "backspace" || msg.Code == 8:
 			if s.cursor > 0 {
@@ -196,24 +202,24 @@ func (s *NewStashScreen) handleKey(msg tea.KeyPressMsg, state plugin.AppState) (
 	}
 
 	// Non-message focus handling.
-	switch msg.Text {
-	case "tab":
+	switch {
+	case msg.Text == "tab", msg.Code == tea.KeyTab:
 		s.focus = (s.focus + 1) % 3
 		return state, nil
 
-	case "shift+tab":
+	case msg.Text == "shift+tab":
 		s.focus = (s.focus + 2) % 3
 		return state, nil
 
-	case "escape":
+	case msg.Text == "escape", msg.Code == tea.KeyEscape:
 		state.Mode = plugin.ModeList
 		s.reset()
 		return state, nil
 
-	case "enter":
+	case msg.Text == "enter", msg.Code == tea.KeyEnter:
 		return state, s.createStash()
 
-	case " ":
+	case msg.Text == " ":
 		if s.focus == FocusScopes && s.scopeIdx < len(s.scopes) {
 			s.scopes[s.scopeIdx].Enabled = !s.scopes[s.scopeIdx].Enabled
 		} else if s.focus == FocusOptions && s.optIdx < len(s.options) {
@@ -221,7 +227,7 @@ func (s *NewStashScreen) handleKey(msg tea.KeyPressMsg, state plugin.AppState) (
 		}
 		return state, nil
 
-	case "j", "down":
+	case msg.Text == "j" || msg.Text == "down" || msg.Code == tea.KeyDown:
 		if s.focus == FocusScopes && s.scopeIdx < len(s.scopes)-1 {
 			s.scopeIdx++
 		} else if s.focus == FocusOptions && s.optIdx < len(s.options)-1 {
@@ -229,7 +235,7 @@ func (s *NewStashScreen) handleKey(msg tea.KeyPressMsg, state plugin.AppState) (
 		}
 		return state, nil
 
-	case "k", "up":
+	case msg.Text == "k" || msg.Text == "up" || msg.Code == tea.KeyUp:
 		if s.focus == FocusScopes && s.scopeIdx > 0 {
 			s.scopeIdx--
 		} else if s.focus == FocusOptions && s.optIdx > 0 {
@@ -302,7 +308,7 @@ func (s *NewStashScreen) View(state plugin.AppState, width, height int) string {
 			cursor = activeStyle.Render("> ")
 		}
 		countStr := dimStyle.Render(fmt.Sprintf("(%d files)", scope.Count))
-		b.WriteString(fmt.Sprintf("  %s[%s] %s %s\n", cursor, check, scope.Label, countStr))
+		fmt.Fprintf(&b, "  %s[%s] %s %s\n", cursor, check, scope.Label, countStr)
 	}
 
 	b.WriteString("\n")
@@ -324,7 +330,7 @@ func (s *NewStashScreen) View(state plugin.AppState, width, height int) string {
 		if s.focus == FocusOptions && i == s.optIdx {
 			cursor = activeStyle.Render("> ")
 		}
-		b.WriteString(fmt.Sprintf("  %s[%s] %s\n", cursor, check, opt.Label))
+		fmt.Fprintf(&b, "  %s[%s] %s\n", cursor, check, opt.Label)
 	}
 
 	// Footer hints.
@@ -366,7 +372,11 @@ func (s *NewStashScreen) createStash() tea.Cmd {
 		}
 
 		s.cache.Invalidate()
-		return StashCreatedMsg{}
+		stashes, err := s.cache.List(ctx)
+		if err != nil {
+			return StashCreateErrorMsg{Err: fmt.Errorf("reload stashes after create: %w", err)}
+		}
+		return StashCreatedMsg{Stashes: stashes}
 	}
 }
 

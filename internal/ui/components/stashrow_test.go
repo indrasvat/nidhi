@@ -90,6 +90,46 @@ func TestStashRow_SelectedState(t *testing.T) {
 	}
 }
 
+func TestStashRow_PinnedMarker(t *testing.T) {
+	r := NewStashRowRenderer(theme.NewAgni())
+	now := time.Now()
+
+	rendered := r.Render(StashRowParams{
+		Stash:      testStash(0, now),
+		Selected:   false,
+		Pinned:     true,
+		Width:      120,
+		UseNerd:    false,
+		TotalCount: 5,
+		Now:        now,
+	})
+
+	plain := stripAnsi(rendered)
+	if !strings.Contains(plain, "\u2605") {
+		t.Error("pinned row should contain star marker")
+	}
+}
+
+func TestStashRow_UnpinnedNoMarker(t *testing.T) {
+	r := NewStashRowRenderer(theme.NewAgni())
+	now := time.Now()
+
+	rendered := r.Render(StashRowParams{
+		Stash:      testStash(0, now),
+		Selected:   false,
+		Pinned:     false,
+		Width:      120,
+		UseNerd:    false,
+		TotalCount: 5,
+		Now:        now,
+	})
+
+	plain := stripAnsi(rendered)
+	if strings.Contains(plain, "\u2605") {
+		t.Error("unpinned row should not contain star marker")
+	}
+}
+
 func TestStashRow_UnselectedNoCursor(t *testing.T) {
 	r := NewStashRowRenderer(theme.NewAgni())
 	now := time.Now()

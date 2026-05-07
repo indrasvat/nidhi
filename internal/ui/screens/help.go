@@ -65,6 +65,7 @@ func NewHelpOverlay(th theme.Theme) *HelpOverlay {
 					{Key: "D", Description: "Drop ALL stashes (double-confirm)", ModeBadge: "LIST"},
 					{Key: "n", Description: "New stash", ModeBadge: "LIST"},
 					{Key: "r", Description: "Rename stash (inline)", ModeBadge: "LIST"},
+					{Key: "m", Description: "Pin/unpin stash marker", ModeBadge: "LIST/PREVIEW"},
 					{Key: "b", Description: "Branch from stash", ModeBadge: "LIST"},
 					{Key: "z", Description: "Undo last drop", ModeBadge: "LIST"},
 					{Key: "J", Description: "Move stash down", ModeBadge: "LIST"},

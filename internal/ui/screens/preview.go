@@ -247,7 +247,8 @@ func (p *PreviewScreen) handleKey(msg tea.KeyPressMsg, state core.AppState) (cor
 	case msg.Text == "a" && n > 0,
 		msg.Text == "p" && n > 0,
 		msg.Text == "r" && n > 0,
-		msg.Text == "b" && n > 0:
+		msg.Text == "b" && n > 0,
+		msg.Text == "m" && n > 0:
 		return p.list.Update(msg, state)
 	case msg.Text == "d" && !msg.Mod.Contains(tea.ModCtrl) && n > 0:
 		return p.list.Update(msg, state)

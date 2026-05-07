@@ -113,6 +113,7 @@ nidhi
 | `D` | Drop ALL stashes (double-confirm) |
 | `n` | Create new stash |
 | `r` | Rename selected stash |
+| `m` | Mark/unmark selected stash with a session pin |
 | `b` | Create branch from stash |
 | `z` | Undo last drop |
 

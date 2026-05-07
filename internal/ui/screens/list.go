@@ -44,6 +44,7 @@ type ListScreen struct {
 	height      int
 	theme       theme.Theme
 	rowRenderer components.StashRowRenderer
+	pinnedSHAs  map[string]struct{}
 }
 
 // NewListScreen creates a new ListScreen with the given theme.
@@ -51,6 +52,7 @@ func NewListScreen(th theme.Theme) *ListScreen {
 	return &ListScreen{
 		theme:       th,
 		rowRenderer: components.NewStashRowRenderer(th),
+		pinnedSHAs:  make(map[string]struct{}),
 	}
 }
 
@@ -208,12 +210,10 @@ func (l *ListScreen) handleKey(msg tea.KeyPressMsg, state core.AppState) (core.A
 		state.Mode = core.ModeNewStash
 	case msg.Text == "r" && n > 0:
 		return state, stashCmd(StashRenameMsg{Stash: state.Stashes[l.cursor]})
-	case msg.Text == "e":
-		state.Mode = core.ModeExport
-	case msg.Text == "i":
-		state.Mode = core.ModeImport
 	case msg.Text == "b" && n > 0:
 		return state, stashCmd(StashBranchMsg{Stash: state.Stashes[l.cursor]})
+	case msg.Text == "m" && n > 0:
+		l.togglePin(state.Stashes[l.cursor])
 	}
 
 	return state, nil
@@ -222,6 +222,34 @@ func (l *ListScreen) handleKey(msg tea.KeyPressMsg, state core.AppState) (core.A
 // stashCmd wraps a stash message as a tea.Cmd.
 func stashCmd(msg tea.Msg) tea.Cmd {
 	return func() tea.Msg { return msg }
+}
+
+// IsPinned reports whether a stash is marked for quick visual tracking.
+func (l *ListScreen) IsPinned(stash core.Stash) bool {
+	if l.pinnedSHAs == nil {
+		return false
+	}
+	_, ok := l.pinnedSHAs[pinKey(stash)]
+	return ok
+}
+
+func (l *ListScreen) togglePin(stash core.Stash) {
+	if l.pinnedSHAs == nil {
+		l.pinnedSHAs = make(map[string]struct{})
+	}
+	key := pinKey(stash)
+	if _, ok := l.pinnedSHAs[key]; ok {
+		delete(l.pinnedSHAs, key)
+		return
+	}
+	l.pinnedSHAs[key] = struct{}{}
+}
+
+func pinKey(stash core.Stash) string {
+	if stash.SHA != "" {
+		return stash.SHA
+	}
+	return stash.ShortSHA
 }
 
 // ─── Rendering ──────────────────────────────────────────────
@@ -247,6 +275,7 @@ func (l *ListScreen) renderStashList(state core.AppState, width, height int) str
 		row := l.rowRenderer.Render(components.StashRowParams{
 			Stash:      state.Stashes[idx],
 			Selected:   idx == l.cursor,
+			Pinned:     l.IsPinned(state.Stashes[idx]),
 			Width:      width,
 			UseNerd:    false,
 			TotalCount: len(state.Stashes),

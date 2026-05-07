@@ -238,6 +238,18 @@ func TestPreviewScreen_EnterOnEmptyDoesNothing(t *testing.T) {
 	}
 }
 
+func TestPreviewScreen_PinDelegatesToList(t *testing.T) {
+	ps, state := newTestPreview()
+
+	newState, cmd := ps.Update(tea.KeyPressMsg{Text: "m"}, state)
+	if cmd != nil {
+		t.Fatal("pin toggle should not dispatch a command")
+	}
+	if !ps.list.IsPinned(newState.Stashes[0]) {
+		t.Fatal("preview mode should pin the selected stash through the shared list")
+	}
+}
+
 func TestPreviewScreen_DiffLoadedMsg(t *testing.T) {
 	ps, state := newTestPreview()
 	ps.currentSHA = "sha0"

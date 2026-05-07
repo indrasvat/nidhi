@@ -143,8 +143,6 @@ func TestListScreen_ModeSwitch(t *testing.T) {
 		{"Tab to PREVIEW", "", tea.KeyTab, core.ModePreview},
 		{"Enter to DETAIL", "", tea.KeyEnter, core.ModeDetail},
 		{"n to NEW STASH", "n", 0, core.ModeNewStash},
-		{"e to EXPORT", "e", 0, core.ModeExport},
-		{"i to IMPORT", "i", 0, core.ModeImport},
 	}
 
 	for _, tt := range tests {
@@ -190,6 +188,58 @@ func TestListScreen_CRUDDispatch(t *testing.T) {
 				t.Error("expected a tea.Cmd but got nil")
 			}
 		})
+	}
+}
+
+func TestListScreen_PinToggle(t *testing.T) {
+	ls := NewListScreen(theme.NewAgni())
+	ls.width = 120
+	ls.height = 30
+	state := makeState(3)
+
+	state, cmd := ls.Update(tea.KeyPressMsg{Text: "m"}, state)
+	if cmd != nil {
+		t.Fatal("pin toggle should not dispatch a command")
+	}
+	if !ls.IsPinned(state.Stashes[0]) {
+		t.Fatal("selected stash should be pinned after pressing m")
+	}
+
+	state, _ = ls.Update(tea.KeyPressMsg{Text: "m"}, state)
+	if ls.IsPinned(state.Stashes[0]) {
+		t.Fatal("selected stash should be unpinned after pressing m again")
+	}
+}
+
+func TestListScreen_PinPersistsAcrossNavigation(t *testing.T) {
+	ls := NewListScreen(theme.NewAgni())
+	ls.width = 120
+	ls.height = 30
+	state := makeState(3)
+
+	state, _ = ls.Update(tea.KeyPressMsg{Text: "m"}, state)
+	state, _ = ls.Update(tea.KeyPressMsg{Text: "j"}, state)
+	state, _ = ls.Update(tea.KeyPressMsg{Text: "m"}, state)
+
+	if !ls.IsPinned(state.Stashes[0]) {
+		t.Fatal("first stash should remain pinned after moving away")
+	}
+	if !ls.IsPinned(state.Stashes[1]) {
+		t.Fatal("second stash should be pinned")
+	}
+}
+
+func TestListScreen_ViewRendersPinnedMarker(t *testing.T) {
+	ls := NewListScreen(theme.NewAgni())
+	ls.width = 120
+	ls.height = 30
+	state := makeState(3)
+
+	state, _ = ls.Update(tea.KeyPressMsg{Text: "m"}, state)
+	view := ls.View(state, 120, 30)
+
+	if !strings.Contains(stripAnsi(view), "\u2605") {
+		t.Error("pinned stash should render a star marker")
 	}
 }
 

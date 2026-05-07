@@ -38,7 +38,7 @@ func TestHelpOverlayContainsKeyBindings(t *testing.T) {
 
 	required := []string{
 		"j / ↓", "a", "p", "d", "n", "r", "/",
-		"f", "F", "e", "i", "z", "?", "Esc", "J", "K",
+		"m", "f", "F", "e", "i", "z", "?", "Esc", "J", "K",
 	}
 	for _, key := range required {
 		if !strings.Contains(rendered, key) {
