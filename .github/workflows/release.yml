@@ -11,6 +11,8 @@ permissions:
 
 env:
   GO_VERSION: "1.26"
+  # Opt-in to Node 24 ahead of the June 2026 deprecation of Node 20.
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 jobs:
   release:
