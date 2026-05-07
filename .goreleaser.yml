@@ -67,21 +67,6 @@ changelog:
     - title: "Other"
       order: 999
 
-brews:
-  - repository:
-      owner: indrasvat
-      name: homebrew-tap
-    homepage: "https://github.com/indrasvat/nidhi"
-    description: "Purpose-built TUI for git stash mastery"
-    license: "MIT"
-    install: |
-      bin.install "nidhi"
-    test: |
-      system "#{bin}/nidhi", "--version"
-    commit_author:
-      name: goreleaserbot
-      email: bot@goreleaser.com
-
 release:
   github:
     owner: indrasvat
@@ -92,6 +77,16 @@ release:
     ## nidhi v{{ .Version }}
 
     Purpose-built TUI for git stash mastery.
+
+    ### Quick install (macOS / Linux)
+
+    ```bash
+    curl -sSfL https://raw.githubusercontent.com/indrasvat/nidhi/main/install.sh | bash
+    ```
+
+    > **macOS Gatekeeper:** if you download the tarball directly, run
+    > `xattr -d com.apple.quarantine nidhi` before first use. The
+    > installer above does this automatically.
   footer: |
     ---
     **Full Changelog**: https://github.com/indrasvat/nidhi/compare/{{ .PreviousTag }}...{{ .Tag }}

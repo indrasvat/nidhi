@@ -62,7 +62,6 @@ After goreleaser creates the release:
   - [ ] `nidhi_0.1.0_linux_arm64.tar.gz`
   - [ ] `nidhi_0.1.0_windows_amd64.zip`
   - [ ] `checksums.txt`
-- [ ] Homebrew formula updated in `indrasvat/homebrew-tap`
 
 ## Post-release Smoke Test
 
@@ -74,9 +73,8 @@ curl -Lo nidhi.tar.gz "https://github.com/indrasvat/nidhi/releases/download/v0.1
 tar xzf nidhi.tar.gz
 ./nidhi --version  # Should print: nidhi 0.1.0 (commit: ..., built: ...)
 
-# Test 2: Homebrew install.
-brew tap indrasvat/tap
-brew install nidhi
+# Test 2: One-line installer.
+curl -sSfL https://raw.githubusercontent.com/indrasvat/nidhi/main/install.sh | bash
 nidhi --version
 
 # Test 3: go install.
