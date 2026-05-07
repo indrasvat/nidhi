@@ -93,7 +93,15 @@ func run(flags config.CLIFlags) error {
 		timing = config.NewDebugTiming()
 	}
 
-	// Load config.
+	// Apply -C / --directory BEFORE loading config so that nidhi.* git config
+	// values are read from the target repository, not the caller's CWD.
+	if flags.Directory != nil && *flags.Directory != "" {
+		if err := os.Chdir(*flags.Directory); err != nil {
+			return fmt.Errorf("changing to directory %s: %w", *flags.Directory, err)
+		}
+	}
+
+	// Load config (now reads git config from the target repo).
 	cfg, err := config.Load(flags)
 	if err != nil {
 		return fmt.Errorf("loading config: %w", err)
@@ -111,16 +119,22 @@ func run(flags config.CLIFlags) error {
 		defer logCleanup()
 	}
 
-	// Handle -C / --directory.
+	// Resolve the final working directory. cfg.Directory may have been set by
+	// the config file even when --directory was not passed; honor that path
+	// here for the runner, but only Chdir if we did not already do so above.
 	workDir := cfg.Directory
-	if workDir == "" {
+	switch {
+	case flags.Directory != nil && *flags.Directory != "":
+		// Already changed to *flags.Directory above.
+		workDir = *flags.Directory
+	case workDir != "":
+		if err := os.Chdir(workDir); err != nil {
+			return fmt.Errorf("changing to directory %s: %w", workDir, err)
+		}
+	default:
 		workDir, err = os.Getwd()
 		if err != nil {
 			return fmt.Errorf("getting working directory: %w", err)
-		}
-	} else {
-		if err := os.Chdir(workDir); err != nil {
-			return fmt.Errorf("changing to directory %s: %w", workDir, err)
 		}
 	}
 
@@ -318,6 +332,8 @@ func run(flags config.CLIFlags) error {
 		appVersion: version,
 		appCommit:  commit,
 		screens:    screenProviders,
+		stashOps:   git.NewStashOps(runner, gitCache),
+		stashHooks: stashHooks,
 	}
 
 	// If --debug, print timing and exit without starting TUI.
@@ -447,6 +463,12 @@ type uiRenderer struct {
 	appVersion string
 	appCommit  string
 	screens    *plugin.Registry[plugin.ScreenProvider]
+
+	// stashOps + stashHooks wire the LIST screen's a/p/d/b CRUD dispatches
+	// (StashApplyMsg, StashPopMsg, …) to the actual git operations and any
+	// registered StashHook plugins (conflict preview, undo recorder, etc.).
+	stashOps   *git.StashOps
+	stashHooks *plugin.Registry[plugin.StashHook]
 }
 
 // RenderWelcome renders the startup welcome screen.
@@ -531,6 +553,20 @@ func (u *uiRenderer) HandleMessage(msg tea.Msg, state core.AppState) (core.AppSt
 			cmds = append(cmds, cmd)
 		}
 		return state, tea.Batch(cmds...)
+	case screens.StashApplyMsg:
+		return state, u.runApply(msg.Stash)
+	case screens.StashPopMsg:
+		return state, u.runPop(msg.Stash)
+	case screens.StashDropMsg:
+		return state, u.runDrop(msg.Stash)
+	case screens.StashBranchMsg:
+		return state, u.runBranch(msg.Stash)
+	case screens.StashRenameMsg:
+		// Rename is handled inline by the rename plugin's HandleKey; the LIST
+		// screen still emits this message for symmetry with apply/pop/drop, so
+		// we acknowledge it as a no-op here. The plugin keypress handler runs
+		// after UI delegation when the screen returned no command.
+		return state, nil
 	}
 
 	// DiffLoadedMsg goes to preview and detail screens.
@@ -671,6 +707,137 @@ func (u *uiRenderer) updateScreenProviders(msg tea.Msg, state *core.AppState) te
 		}
 	}
 	return tea.Batch(cmds...)
+}
+
+// ─── Stash CRUD wiring ──────────────────────────────────────
+//
+// The LIST screen dispatches StashApplyMsg/StashPopMsg/StashDropMsg/
+// StashBranchMsg in response to the a/p/d/b keys. These helpers run the
+// matching git operation through StashOps, fire any registered StashHook
+// callbacks (BeforeApply for conflict preview, AfterDrop for undo
+// recording), surface a toast, and emit core.StashMutatedMsg so the model
+// invalidates the cache and reloads the list.
+
+func (u *uiRenderer) runApply(stash plugin.Stash) tea.Cmd {
+	cmds := u.beforeApplyCmds(stash)
+	cmds = append(cmds, func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), git.DefaultTimeout)
+		defer cancel()
+		result, err := u.stashOps.Apply(ctx, stash.Index)
+		if err != nil {
+			return core.ErrorMsg{Err: fmt.Errorf("apply: %w", err)}
+		}
+		if !result.Success {
+			return core.ErrorMsg{Err: fmt.Errorf("apply failed: %s", result.Error)}
+		}
+		return core.InfoToastMsg{Text: "Applied: " + stash.Message}
+	})
+	return tea.Batch(cmds...)
+}
+
+func (u *uiRenderer) runPop(stash plugin.Stash) tea.Cmd {
+	cmds := u.beforeApplyCmds(stash)
+	cmds = append(cmds,
+		func() tea.Msg {
+			ctx, cancel := context.WithTimeout(context.Background(), git.DefaultTimeout)
+			defer cancel()
+			result, err := u.stashOps.Pop(ctx, stash.Index)
+			if err != nil {
+				return core.ErrorMsg{Err: fmt.Errorf("pop: %w", err)}
+			}
+			if !result.Success {
+				return core.ErrorMsg{Err: fmt.Errorf("pop failed: %s", result.Error)}
+			}
+			return core.InfoToastMsg{Text: "Popped: " + stash.Message}
+		},
+		u.afterDropCmd(stash),
+		mutated(),
+	)
+	return tea.Batch(cmds...)
+}
+
+func (u *uiRenderer) runDrop(stash plugin.Stash) tea.Cmd {
+	return tea.Batch(
+		func() tea.Msg {
+			ctx, cancel := context.WithTimeout(context.Background(), git.DefaultTimeout)
+			defer cancel()
+			result, err := u.stashOps.Drop(ctx, stash.Index)
+			if err != nil {
+				return core.ErrorMsg{Err: fmt.Errorf("drop: %w", err)}
+			}
+			if !result.Success {
+				return core.ErrorMsg{Err: fmt.Errorf("drop failed: %s", result.Error)}
+			}
+			return core.InfoToastMsg{Text: "Dropped: " + stash.Message + " (z to undo)"}
+		},
+		u.afterDropCmd(stash),
+		mutated(),
+	)
+}
+
+func (u *uiRenderer) runBranch(stash plugin.Stash) tea.Cmd {
+	// Branch creation needs a name from the user; for now derive a default
+	// from the stash index. A future revision can prompt via a small modal
+	// (see core.PromptBranchNameMsg, currently unwired).
+	branchName := fmt.Sprintf("stash-%d-branch", stash.Index)
+	return tea.Batch(
+		func() tea.Msg {
+			ctx, cancel := context.WithTimeout(context.Background(), git.DefaultTimeout)
+			defer cancel()
+			result, err := u.stashOps.BranchFromStash(ctx, stash.Index, branchName)
+			if err != nil {
+				return core.ErrorMsg{Err: fmt.Errorf("branch: %w", err)}
+			}
+			if !result.Success {
+				return core.ErrorMsg{Err: fmt.Errorf("branch failed: %s", result.Error)}
+			}
+			return core.InfoToastMsg{Text: "Created branch " + branchName + " from " + stash.Message}
+		},
+		// `git stash branch` drops the stash on success, so fire AfterDrop
+		// hooks (undo recorder records the SHA for `z` recovery) and reload.
+		u.afterDropCmd(stash),
+		mutated(),
+	)
+}
+
+// beforeApplyCmds invokes BeforeApply on every registered StashHook. If any
+// hook returns proceed=false the operation is short-circuited and the hook's
+// returned cmd is the only one that runs (typically opening a modal screen).
+func (u *uiRenderer) beforeApplyCmds(stash plugin.Stash) []tea.Cmd {
+	if u.stashHooks == nil {
+		return nil
+	}
+	var cmds []tea.Cmd
+	for _, hook := range u.stashHooks.All() {
+		proceed, cmd := hook.BeforeApply(stash)
+		if cmd != nil {
+			cmds = append(cmds, cmd)
+		}
+		if !proceed {
+			// One hook vetoed the apply; do not chain the actual operation.
+			return []tea.Cmd{tea.Batch(cmds...)}
+		}
+	}
+	return cmds
+}
+
+func (u *uiRenderer) afterDropCmd(stash plugin.Stash) tea.Cmd {
+	if u.stashHooks == nil {
+		return nil
+	}
+	var cmds []tea.Cmd
+	for _, hook := range u.stashHooks.All() {
+		if cmd := hook.AfterDrop(stash, stash.SHA); cmd != nil {
+			cmds = append(cmds, cmd)
+		}
+	}
+	return tea.Batch(cmds...)
+}
+
+// mutated returns a tea.Cmd that emits core.StashMutatedMsg, which core.Model
+// handles by invalidating the cache and reloading the stash list.
+func mutated() tea.Cmd {
+	return func() tea.Msg { return core.StashMutatedMsg{} }
 }
 
 func printUsage() {

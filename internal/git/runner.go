@@ -19,11 +19,16 @@ const LongTimeout = 60 * time.Second
 
 // GitRunner abstracts all git command execution.
 type GitRunner interface {
-	// Run executes a git command and returns stdout.
+	// Run executes a git command and returns stdout. A non-zero exit from git
+	// is returned as an error. Use RunExitCode when the caller specifically
+	// needs to inspect a non-zero exit code (e.g. merge-tree, where exit 1
+	// signals "conflicts found" and is not an error).
 	Run(ctx context.Context, args ...string) (string, error)
 	// RunLines executes and returns stdout split by newline.
 	RunLines(ctx context.Context, args ...string) ([]string, error)
-	// RunExitCode executes and returns the exit code (for merge-tree).
+	// RunExitCode executes and returns the exit code without treating
+	// non-zero as an error. Use this when the exit code carries information
+	// the caller must act on.
 	RunExitCode(ctx context.Context, args ...string) (stdout string, exitCode int, err error)
 }
 
@@ -49,8 +54,14 @@ func NewDefaultRunner(workDir string, logger *slog.Logger) *DefaultRunner {
 }
 
 func (r *DefaultRunner) Run(ctx context.Context, args ...string) (string, error) {
-	stdout, _, err := r.run(ctx, args...)
-	return stdout, err
+	stdout, exitCode, err := r.run(ctx, args...)
+	if err != nil {
+		return stdout, err
+	}
+	if exitCode != 0 {
+		return stdout, fmt.Errorf("git %s exited %d", args[0], exitCode)
+	}
+	return stdout, nil
 }
 
 func (r *DefaultRunner) RunLines(ctx context.Context, args ...string) ([]string, error) {

@@ -90,6 +90,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleStashesLoaded(msg)
 	case errMsg:
 		return m.handleError(msg)
+	case StashMutatedMsg:
+		return m.handleStashMutated()
 	}
 	// Forward unhandled messages to UI renderer (DiffLoadedMsg, ToastTickMsg, etc).
 	if m.UI != nil {
@@ -223,6 +225,14 @@ func (m *Model) handleError(msg errMsg) (tea.Model, tea.Cmd) {
 	m.logger.Error("operation failed", "op", msg.operation, "error", msg.err)
 	m.bus.Publish(NewErrorEvent(msg.operation, msg.err))
 	return m, nil
+}
+
+// handleStashMutated invalidates the cache and reloads the stash list after
+// any mutation (apply/pop/drop/rename/branch/store/reorder).
+func (m *Model) handleStashMutated() (tea.Model, tea.Cmd) {
+	m.pluginCtx.Cache.Invalidate()
+	m.bus.Publish(NewCacheInvalidatedEvent())
+	return m, m.loadStashes()
 }
 
 // ─── Built-in key handlers ──────────────────────────────────
