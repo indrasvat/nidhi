@@ -156,20 +156,46 @@ detect_platform() {
 
 # --- Version resolution -------------------------------------------------------
 
-get_latest_version() {
-    local url="https://api.github.com/repos/${REPO}/releases/latest"
-    local response
-
+# fetch_url prints the body of a successful GET (200), or returns non-zero.
+# Distinguishes 404 (resource missing, e.g. no stable release yet) from
+# network/auth failures so the caller can fall back gracefully.
+fetch_url() {
+    local url="$1"
     if [[ "${DOWNLOADER}" == "curl" ]]; then
-        response="$(curl -sSfL "${url}" 2>/dev/null)" || error_exit "Failed to query GitHub releases"
+        curl -sSfL "${url}" 2>/dev/null
     else
-        response="$(wget -qO- "${url}" 2>/dev/null)" || error_exit "Failed to query GitHub releases"
+        wget -qO- "${url}" 2>/dev/null
+    fi
+}
+
+# parse_first_tag pulls the first tag_name out of a /releases or /releases/latest
+# JSON response. The /releases endpoint returns newest-first by default, so the
+# first match is the most recent release (including pre-releases).
+parse_first_tag() {
+    grep -m1 '"tag_name"' | sed -E 's/.*"tag_name": *"([^"]+)".*/\1/'
+}
+
+get_latest_version() {
+    local response tag
+
+    # Prefer the stable release (excludes pre-releases by GitHub policy).
+    response="$(fetch_url "https://api.github.com/repos/${REPO}/releases/latest" || true)"
+    tag="$(echo "${response}" | parse_first_tag || true)"
+
+    # Fall back to /releases (includes pre-releases) when no stable release
+    # exists yet. Warn the user so they know they are getting a pre-release.
+    if [[ -z "${tag}" ]]; then
+        response="$(fetch_url "https://api.github.com/repos/${REPO}/releases?per_page=1" || true)"
+        tag="$(echo "${response}" | parse_first_tag || true)"
+        if [[ -n "${tag}" ]]; then
+            warn "No stable release yet — installing pre-release ${tag}"
+        fi
     fi
 
-    VERSION="$(echo "${response}" | grep '"tag_name"' | sed -E 's/.*"tag_name": *"([^"]+)".*/\1/' || true)"
-    if [[ -z "${VERSION}" ]]; then
-        error_exit "Could not determine latest version. Releases may not yet exist at github.com/${REPO}/releases"
+    if [[ -z "${tag}" ]]; then
+        error_exit "Could not find a release at github.com/${REPO}/releases. Pin a version with --version vX.Y.Z if a tag exists."
     fi
+    VERSION="${tag}"
 }
 
 # --- Download helpers ---------------------------------------------------------
