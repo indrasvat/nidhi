@@ -1,8 +1,10 @@
+<h1 align="center">nidhi</h1>
+
 <p align="center">
-  <strong>nidhi</strong> &nbsp;<em>निधि</em><br>
   <strong>Purpose-built TUI for <code>git stash</code> mastery</strong><br>
   <em>"Your stashes are treasure. Treat them that way."</em><br>
-  <img src="https://img.shields.io/badge/निधि-treasure-D4A24C?style=flat&labelColor=07090E" alt="Treasure">
+  <sub>nidhi · <em>nih-dhee</em> · Sanskrit for "treasure"</sub><br>
+  <img src="https://img.shields.io/badge/nidhi-treasure-D4A24C?style=flat&labelColor=07090E" alt="Treasure">
 </p>
 
 <p align="center">
