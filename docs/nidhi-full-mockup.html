@@ -1,0 +1,1479 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>निधि — Full TUI Design Spec</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Outfit:wght@300;400;500;600;700;800;900&display=swap');
+
+  /* ══════════════════════════════════════════════════════
+     DESIGN SYSTEM: "Agni" (अग्नि) — Ember on Deep Ocean
+     ══════════════════════════════════════════════════════ */
+  :root {
+    /* Backgrounds — deep blue-black gradient */
+    --bg-0: #07090E;
+    --bg-1: #0C1018;
+    --bg-2: #111621;
+    --bg-3: #181E2C;
+    --bg-4: #1F2738;
+    --bg-hover: #172034;
+    --bg-sel: #1A2342;
+    --bg-sel-border: #D4A050;
+    --bg-input: #0A0E16;
+
+    /* Diff backgrounds */
+    --bg-add: #0D2818;
+    --bg-del: #2A0F14;
+    --bg-hunk: #141830;
+    --bg-conflict: #2A1F0A;
+
+    /* Borders */
+    --b0: #1E2536;
+    --b1: #2A3348;
+    --b-focus: #D4A050;
+    --b-active: #E8B85A;
+
+    /* Primary: Warm gold/amber */
+    --gold: #D4A050;
+    --gold-bright: #E8B85A;
+    --gold-dim: #957030;
+    --gold-bg: rgba(212,160,80,0.08);
+
+    /* Accent palette */
+    --aqua: #4EC9B0;
+    --aqua-dim: #368A7A;
+    --blue: #6CB6FF;
+    --purple: #B898F0;
+    --coral: #F47067;
+    --green: #73D990;
+    --red: #FF5F6D;
+    --yellow: #E5C07B;
+    --orange: #E89B5A;
+    --pink: #E88AD0;
+
+    /* Text */
+    --fg: #D0D7E0;
+    --fg1: #8892A0;
+    --fg2: #505868;
+    --fg3: #343C4E;
+
+    /* Fonts */
+    --mono: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
+    --sans: 'Outfit', 'SF Pro Display', system-ui, sans-serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #040508;
+    color: var(--fg);
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 1.5;
+    padding: 32px 24px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── Page header ── */
+  .hero {
+    text-align: center;
+    margin-bottom: 32px;
+    padding: 40px 0;
+    position: relative;
+  }
+  .hero::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 50%;
+    transform: translateX(-50%);
+    width: 500px; height: 300px;
+    background: radial-gradient(ellipse, rgba(212,160,80,0.06) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .hero-sans { font-size: 18px; color: var(--fg2); font-weight: 300; letter-spacing: 8px; font-family: var(--sans); }
+  .hero-logo {
+    font-family: var(--sans);
+    font-size: 56px;
+    font-weight: 900;
+    letter-spacing: -2px;
+    background: linear-gradient(135deg, var(--gold-bright), var(--orange));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .hero-sub {
+    color: var(--fg1);
+    font-size: 14px;
+    font-family: var(--sans);
+    margin-top: 6px;
+  }
+
+  /* ── Section label ── */
+  .sec {
+    max-width: 1020px;
+    margin: 52px auto 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-family: var(--sans);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--fg1);
+    text-transform: uppercase;
+    letter-spacing: 3px;
+  }
+  .sec::before {
+    content: '';
+    width: 3px; height: 14px;
+    background: var(--gold);
+    border-radius: 2px;
+  }
+  .sec .dim {
+    margin-left: auto;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--fg2);
+    text-transform: none;
+    letter-spacing: 0.5px;
+  }
+
+  /* ── Terminal chrome ── */
+  .t {
+    max-width: 1020px;
+    margin: 0 auto 16px;
+    background: var(--bg-1);
+    border: 1px solid var(--b0);
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 6px 40px rgba(0,0,0,0.5);
+  }
+  .t-bar {
+    height: 32px;
+    background: var(--bg-0);
+    border-bottom: 1px solid var(--b0);
+    display: flex;
+    align-items: center;
+    padding: 0 12px;
+    gap: 6px;
+  }
+  .dot { width: 10px; height: 10px; border-radius: 50%; }
+  .dr { background: #FF5F57; }
+  .dy { background: #FEBC2E; }
+  .dg { background: #28C840; }
+  .t-title {
+    flex: 1;
+    text-align: center;
+    color: var(--fg2);
+    font-size: 11px;
+    margin-right: 40px;
+  }
+
+  /* ── Status bar (top of every screen) ── */
+  .hbar {
+    padding: 5px 14px;
+    background: var(--bg-2);
+    border-bottom: 1px solid var(--b0);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+  }
+  .h-mark { color: var(--gold); font-weight: 700; font-size: 14px; }
+  .h-repo { color: var(--fg); font-weight: 600; }
+  .h-br { color: var(--aqua); font-size: 11px; }
+  .h-n {
+    background: var(--gold-bg);
+    border: 1px solid rgba(212,160,80,0.2);
+    color: var(--gold);
+    padding: 0 6px;
+    border-radius: 3px;
+    font-size: 10px;
+    font-weight: 600;
+  }
+  .h-sep { flex: 1; }
+  .h-sync { color: var(--aqua); font-size: 10px; display: flex; align-items: center; gap: 4px; }
+  .h-sync-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--aqua); }
+  .h-ver { color: var(--fg2); font-size: 10px; }
+
+  /* ── Keybind footer (bottom of every screen) ── */
+  .fbar {
+    padding: 5px 14px;
+    background: var(--bg-2);
+    border-top: 1px solid var(--b0);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 10px;
+  }
+  .fkeys { display: flex; gap: 12px; flex-wrap: wrap; }
+  .fk { display: flex; align-items: center; gap: 3px; color: var(--fg2); }
+  .fk .k {
+    background: var(--bg-3);
+    color: var(--gold);
+    padding: 1px 4px;
+    border-radius: 2px;
+    font-size: 9px;
+    font-weight: 600;
+    border: 1px solid var(--b0);
+  }
+  .fmode {
+    font-weight: 600;
+    font-size: 11px;
+    padding: 1px 8px;
+    border-radius: 3px;
+  }
+  .fmode-list { color: var(--gold); background: var(--gold-bg); }
+  .fmode-preview { color: var(--aqua); background: rgba(78,201,176,0.08); }
+  .fmode-detail { color: var(--blue); background: rgba(108,182,255,0.08); }
+  .fmode-search { color: var(--purple); background: rgba(184,152,240,0.08); }
+  .fmode-export { color: var(--orange); background: rgba(232,155,90,0.08); }
+  .fmode-confirm { color: var(--yellow); background: rgba(229,192,123,0.08); }
+  .fmode-new { color: var(--green); background: rgba(115,217,144,0.08); }
+  .fmode-help { color: var(--fg1); background: rgba(136,146,160,0.08); }
+
+  /* ── Toast notification ── */
+  .toast {
+    padding: 4px 14px;
+    font-size: 11px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    border-top: 1px solid var(--b0);
+  }
+  .toast-ok { background: rgba(115,217,144,0.06); color: var(--green); }
+  .toast-warn { background: rgba(229,192,123,0.06); color: var(--yellow); }
+  .toast-undo { background: rgba(108,182,255,0.06); color: var(--blue); }
+  .toast .toast-key {
+    background: var(--bg-3);
+    color: var(--gold);
+    padding: 0 4px;
+    border-radius: 2px;
+    font-size: 9px;
+    font-weight: 600;
+    border: 1px solid var(--b0);
+    margin-left: auto;
+  }
+
+  /* ═══ STASH ROW (core reusable component) ═══ */
+  .r {
+    display: grid;
+    grid-template-columns: 30px 1fr auto;
+    align-items: center;
+    padding: 6px 14px;
+    border-left: 2px solid transparent;
+    cursor: pointer;
+  }
+  .r:hover { background: var(--bg-hover); }
+  .r + .r { border-top: 1px solid var(--bg-3); }
+  .r.sel {
+    background: var(--bg-sel);
+    border-left-color: var(--gold);
+  }
+  .r.sel + .r, .r + .r.sel { border-top-color: transparent; }
+
+  .r-i { color: var(--gold-dim); font-weight: 600; font-size: 11px; text-align: center; }
+  .r.sel .r-i { color: var(--gold-bright); }
+
+  .r-body { min-width: 0; }
+  .r-msg {
+    color: var(--fg);
+    font-weight: 500;
+    font-size: 13px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.3;
+  }
+  .r-meta {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 10px;
+    margin-top: 1px;
+  }
+  .r-br { color: var(--aqua-dim); }
+  .r-add { color: var(--green); }
+  .r-del { color: var(--red); }
+  .r-tag {
+    padding: 0 4px;
+    border-radius: 2px;
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+  .tag-s { background: rgba(115,217,144,0.1); color: var(--green); }
+  .tag-u { background: rgba(232,138,208,0.1); color: var(--pink); }
+  .tag-c { background: rgba(229,192,123,0.1); color: var(--yellow); }
+
+  .r-age {
+    color: var(--fg2);
+    font-size: 10px;
+    text-align: right;
+    white-space: nowrap;
+    padding-left: 8px;
+  }
+
+  /* Multi-select checkbox */
+  .r-ck {
+    width: 12px; height: 12px;
+    border: 1.5px solid var(--fg2);
+    border-radius: 2px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 8px;
+    margin-right: 6px;
+    vertical-align: middle;
+  }
+  .r-ck.on { background: var(--gold); border-color: var(--gold); color: var(--bg-0); }
+
+  /* ═══ DIFF LINES (reusable) ═══ */
+  .dl {
+    padding: 0 14px;
+    display: flex;
+    white-space: pre;
+    min-height: 18px;
+    font-size: 11.5px;
+    line-height: 1.5;
+  }
+  .dl-n {
+    flex: 0 0 30px;
+    text-align: right;
+    color: var(--fg2);
+    padding-right: 8px;
+    user-select: none;
+    font-size: 10px;
+    opacity: 0.35;
+  }
+  .dl-c { flex: 1; }
+  .dl-a { background: var(--bg-add); color: var(--green); }
+  .dl-d { background: var(--bg-del); color: var(--red); }
+  .dl-h { background: var(--bg-hunk); color: var(--purple); font-weight: 500; padding-top: 2px; margin-top: 2px; }
+  .dl-x { color: var(--fg1); }
+
+  /* ═══ FILE TABS (for diff pane) ═══ */
+  .ftabs {
+    display: flex;
+    gap: 0;
+    padding: 0 14px;
+    background: var(--bg-3);
+    border-bottom: 1px solid var(--b0);
+    overflow-x: auto;
+  }
+  .ftab {
+    padding: 4px 10px;
+    font-size: 10px;
+    color: var(--fg2);
+    border-bottom: 2px solid transparent;
+    white-space: nowrap;
+    cursor: pointer;
+  }
+  .ftab.act { color: var(--gold); border-bottom-color: var(--gold); }
+  .ftab .fs { margin-left: 3px; font-size: 9px; }
+
+  /* ═══ INPUT FIELD ═══ */
+  .inp {
+    background: var(--bg-input);
+    border: 1px solid var(--b0);
+    border-radius: 4px;
+    padding: 6px 10px;
+    font-family: var(--mono);
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--fg);
+  }
+  .inp.focused { border-color: var(--b-focus); box-shadow: 0 0 0 1px rgba(212,160,80,0.15); }
+  .inp-pre { color: var(--fg2); }
+  .inp-val { color: var(--gold-bright); font-weight: 500; }
+  .inp-cur { width: 1.5px; height: 14px; background: var(--gold); animation: blink 1s step-end infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  /* ═══ BUTTON ═══ */
+  .btn {
+    padding: 3px 10px;
+    border-radius: 3px;
+    font-size: 10px;
+    font-weight: 600;
+    font-family: var(--mono);
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .btn-gold { background: var(--gold); color: var(--bg-0); }
+  .btn-aqua { background: var(--aqua); color: var(--bg-0); }
+  .btn-coral { background: var(--coral); color: #fff; }
+  .btn-ghost { background: var(--bg-3); color: var(--fg1); border: 1px solid var(--b0); }
+  .btn-green { background: var(--green); color: var(--bg-0); }
+  .btn-yellow { background: var(--yellow); color: var(--bg-0); }
+
+  /* ═══ DESIGN NOTE ═══ */
+  .note-card {
+    max-width: 1020px;
+    margin: 6px auto 36px;
+    padding: 10px 14px;
+    background: var(--bg-2);
+    border: 1px solid var(--b0);
+    border-left: 3px solid var(--gold-dim);
+    border-radius: 6px;
+    font-size: 11px;
+    line-height: 1.7;
+    color: var(--fg1);
+  }
+  .note-card strong { color: var(--fg); font-weight: 600; }
+  .note-card code { background: var(--bg-3); padding: 1px 4px; border-radius: 2px; color: var(--gold); font-size: 10px; }
+
+  /* Utility */
+  .gap { height: 4px; }
+  .spacer { flex: 1; }
+  .tc { color: var(--aqua); }
+  .tg { color: var(--green); }
+  .tr { color: var(--red); }
+  .ty { color: var(--yellow); }
+  .to { color: var(--orange); }
+  .tp { color: var(--purple); }
+  .tb { color: var(--blue); }
+  .td { color: var(--fg2); }
+  .tgold { color: var(--gold); }
+  .fw5 { font-weight: 500; }
+  .fw6 { font-weight: 600; }
+
+  /* ═══ SPECIFIC LAYOUTS ═══ */
+
+  /* Split pane helper */
+  .split-h { display: grid; }
+  .split-v { display: flex; flex-direction: column; }
+
+  /* File tree */
+  .tree { overflow-y: auto; padding: 4px 0; background: var(--bg-1); }
+  .tree-grp { padding: 3px 12px; font-size: 9px; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 600; margin-top: 4px; }
+  .tree-f {
+    padding: 2px 12px 2px 20px;
+    font-size: 11px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    color: var(--fg1);
+    cursor: pointer;
+  }
+  .tree-f:hover { background: var(--bg-hover); color: var(--fg); }
+  .tree-f.act { background: var(--bg-sel); color: var(--fg); }
+  .tree-fi { flex: 0 0 10px; font-size: 9px; font-weight: 700; }
+  .tree-fn { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tree-fs { font-size: 9px; color: var(--fg2); }
+
+  /* Search */
+  .search-input {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--bg-input);
+    border: 1px solid var(--b-focus);
+    border-radius: 5px;
+    padding: 7px 12px;
+    box-shadow: 0 0 12px rgba(212,160,80,0.06);
+  }
+  .search-icon { color: var(--gold); font-size: 13px; }
+  .search-text { color: var(--fg); flex: 1; font-size: 13px; }
+  .search-count { color: var(--fg2); font-size: 11px; }
+
+  .search-match {
+    background: rgba(232,184,90,0.2);
+    color: var(--gold-bright);
+    padding: 0 1px;
+    border-radius: 1px;
+  }
+
+  .filter-chips { display: flex; gap: 4px; margin-top: 6px; }
+  .chip {
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 10px;
+    border: 1px solid var(--b0);
+    color: var(--fg2);
+  }
+  .chip.on { background: var(--gold-bg); border-color: rgba(212,160,80,0.3); color: var(--gold); }
+
+  /* Conflict indicator */
+  .conflict-bar {
+    padding: 5px 14px;
+    font-size: 11px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .conflict-safe { background: rgba(115,217,144,0.06); border-bottom: 1px solid rgba(115,217,144,0.1); }
+  .conflict-warn { background: rgba(229,192,123,0.06); border-bottom: 1px solid rgba(229,192,123,0.1); }
+
+  /* Modal */
+  .modal-bg {
+    position: relative;
+    min-height: 200px;
+    background: var(--bg-1);
+  }
+  .modal-dim { opacity: 0.2; }
+  .modal {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    background: var(--bg-3);
+    border: 1px solid var(--b-focus);
+    border-radius: 8px;
+    padding: 14px 18px;
+    width: 360px;
+    box-shadow: 0 8px 48px rgba(0,0,0,0.6), 0 0 24px rgba(212,160,80,0.04);
+    z-index: 10;
+  }
+  .modal-title { font-family: var(--sans); font-weight: 600; font-size: 14px; margin-bottom: 8px; }
+  .modal-body { color: var(--fg1); font-size: 12px; line-height: 1.7; margin-bottom: 12px; }
+  .modal-btns { display: flex; gap: 6px; justify-content: flex-end; }
+
+  /* Help overlay */
+  .help-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0 24px;
+    font-size: 11px;
+    padding: 8px 0;
+  }
+  .help-section { margin-bottom: 12px; }
+  .help-heading {
+    font-weight: 600;
+    color: var(--gold);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin-bottom: 4px;
+    padding-bottom: 2px;
+    border-bottom: 1px solid var(--b0);
+  }
+  .help-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 1px 0;
+  }
+  .help-row .k-group { display: flex; gap: 3px; }
+  .help-action { color: var(--fg1); }
+
+  /* Rename inline */
+  .rename-input {
+    background: var(--bg-input);
+    border: 1px solid var(--b-focus);
+    border-radius: 3px;
+    padding: 2px 6px;
+    color: var(--fg);
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 500;
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    box-shadow: 0 0 8px rgba(212,160,80,0.08);
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════
+     HERO
+     ═══════════════════════════════════════════════════════ -->
+<div class="hero">
+  <div class="hero-sans">निधि</div>
+  <div class="hero-logo">nidhi</div>
+  <div class="hero-sub">A purpose-built TUI for git stash — browse · diff · search · export · sync</div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     1. LIST MODE (default state)
+     ═══════════════════════════════════════════════════════ -->
+<div class="sec">
+  1 · List
+  <span class="dim">default · launches into this · single-key everything</span>
+</div>
+
+<div class="t">
+  <div class="t-bar"><div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div><span class="t-title">nidhi · ~/src/drishti-led</span></div>
+  <div class="hbar">
+    <span class="h-mark">◆</span>
+    <span class="h-repo">drishti-led</span>
+    <span class="h-br">⎇ main</span>
+    <span class="h-n">7 stashes</span>
+    <span class="h-sep"></span>
+    <span class="h-sync"><span class="h-sync-dot"></span> synced</span>
+    <span class="h-ver">│ 2.51</span>
+  </div>
+
+  <div>
+    <div class="r sel">
+      <span class="r-i">0</span>
+      <div class="r-body">
+        <div class="r-msg">feat: camera LED pulse animation for DND mode</div>
+        <div class="r-meta">
+          <span class="r-br">⎇ main</span>
+          <span class="r-add">+127</span><span class="r-del">−14</span>
+          <span class="r-tag tag-s">staged</span>
+          <span class="r-tag tag-u">+3 new</span>
+        </div>
+      </div>
+      <span class="r-age">3h</span>
+    </div>
+    <div class="r">
+      <span class="r-i">1</span>
+      <div class="r-body">
+        <div class="r-msg">wip: Swift 6.2 concurrency migration — actor isolation</div>
+        <div class="r-meta">
+          <span class="r-br">⎇ feat/swift6</span>
+          <span class="r-add">+89</span><span class="r-del">−203</span>
+        </div>
+      </div>
+      <span class="r-age">1d</span>
+    </div>
+    <div class="r">
+      <span class="r-i">2</span>
+      <div class="r-body">
+        <div class="r-msg">fix: menubar icon disappearing on wake from sleep</div>
+        <div class="r-meta">
+          <span class="r-br">⎇ main</span>
+          <span class="r-add">+22</span><span class="r-del">−8</span>
+        </div>
+      </div>
+      <span class="r-age">2d</span>
+    </div>
+    <div class="r">
+      <span class="r-i">3</span>
+      <div class="r-body">
+        <div class="r-msg">experiment: Liquid Glass blur effect prototype</div>
+        <div class="r-meta">
+          <span class="r-br">⎇ feat/liquid-glass</span>
+          <span class="r-add">+341</span>
+          <span class="r-tag tag-u">+5 new</span>
+        </div>
+      </div>
+      <span class="r-age">4d</span>
+    </div>
+    <div class="r">
+      <span class="r-i">4</span>
+      <div class="r-body">
+        <div class="r-msg">refactor: extract NotificationBridge protocol</div>
+        <div class="r-meta"><span class="r-br">⎇ main</span> <span class="r-add">+56</span><span class="r-del">−71</span></div>
+      </div>
+      <span class="r-age">1w</span>
+    </div>
+    <div class="r">
+      <span class="r-i">5</span>
+      <div class="r-body">
+        <div class="r-msg" style="color:var(--fg1)">debug: verbose camera permission logging</div>
+        <div class="r-meta"><span class="r-br">⎇ fix/cam</span> <span class="r-add">+18</span><span class="r-del">−2</span></div>
+      </div>
+      <span class="r-age" style="color:var(--fg3)">2w</span>
+    </div>
+    <div class="r">
+      <span class="r-i">6</span>
+      <div class="r-body">
+        <div class="r-msg" style="color:var(--fg1)">chore: update Package.resolved</div>
+        <div class="r-meta"><span class="r-br">⎇ main</span> <span class="r-add">+4</span><span class="r-del">−4</span> <span class="r-tag tag-c">stale · 3w</span></div>
+      </div>
+      <span class="r-age" style="color:var(--fg3)">3w</span>
+    </div>
+  </div>
+
+  <div class="fbar">
+    <div class="fkeys">
+      <span class="fk"><span class="k">j/k</span>nav</span>
+      <span class="fk"><span class="k">⏎</span>detail</span>
+      <span class="fk"><span class="k">⇥</span>preview</span>
+      <span class="fk"><span class="k">n</span>new</span>
+      <span class="fk"><span class="k">a</span>apply</span>
+      <span class="fk"><span class="k">p</span>pop</span>
+      <span class="fk"><span class="k">d</span>drop</span>
+      <span class="fk"><span class="k">r</span>rename</span>
+      <span class="fk"><span class="k">e</span>export</span>
+      <span class="fk"><span class="k">/</span>search</span>
+      <span class="fk"><span class="k">?</span>help</span>
+    </div>
+    <span class="fmode fmode-list">LIST</span>
+  </div>
+</div>
+
+<div class="note-card">
+  <strong>Default state.</strong> App launches here. Compact rows with <strong>progressive dimming</strong>: older stashes fade.
+  Stale stashes (>2 weeks, base commit unreachable) get a <code>stale</code> tag.
+  Index numbers are 0-based like git. <strong>Stash messages as first-class citizens</strong> — if a stash has no custom message,
+  nidhi auto-generates one from the first modified file: <code>"WIP on main" → "WIP: LEDController.swift +3 more"</code>.
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     2. PREVIEW MODE (Tab toggle)
+     ═══════════════════════════════════════════════════════ -->
+<div class="sec">
+  2 · Preview
+  <span class="dim">⇥ toggles bottom diff pane · tracks cursor · h/l cycles files</span>
+</div>
+
+<div class="t">
+  <div class="t-bar"><div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div><span class="t-title">nidhi · preview</span></div>
+  <div class="hbar">
+    <span class="h-mark">◆</span>
+    <span class="h-repo">drishti-led</span>
+    <span class="h-br">⎇ main</span>
+    <span class="h-n">7</span>
+    <span class="h-sep"></span>
+    <span class="h-sync"><span class="h-sync-dot"></span> synced</span>
+    <span class="h-ver">│ 2.51</span>
+  </div>
+
+  <!-- Compressed list -->
+  <div>
+    <div class="r sel" style="padding:4px 14px">
+      <span class="r-i">0</span>
+      <div class="r-body">
+        <div class="r-msg" style="font-size:12px">feat: camera LED pulse animation for DND mode</div>
+        <div class="r-meta"><span class="r-br">⎇ main</span> <span class="r-add">+127</span><span class="r-del">−14</span> <span class="r-tag tag-s">staged</span></div>
+      </div>
+      <span class="r-age">3h</span>
+    </div>
+    <div class="r" style="padding:4px 14px">
+      <span class="r-i">1</span>
+      <div class="r-body">
+        <div class="r-msg" style="font-size:12px">wip: Swift 6.2 concurrency migration — actor isolation</div>
+        <div class="r-meta"><span class="r-br">⎇ feat/swift6</span> <span class="r-add">+89</span><span class="r-del">−203</span></div>
+      </div>
+      <span class="r-age">1d</span>
+    </div>
+    <div class="r" style="padding:4px 14px">
+      <span class="r-i">2</span>
+      <div class="r-body">
+        <div class="r-msg" style="font-size:12px">fix: menubar icon disappearing on wake from sleep</div>
+        <div class="r-meta"><span class="r-br">⎇ main</span> <span class="r-add">+22</span><span class="r-del">−8</span></div>
+      </div>
+      <span class="r-age">2d</span>
+    </div>
+    <div class="r" style="padding:4px 14px">
+      <span class="r-i">3</span>
+      <div class="r-body">
+        <div class="r-msg" style="font-size:12px">experiment: Liquid Glass blur effect prototype</div>
+        <div class="r-meta"><span class="r-br">⎇ feat/liquid-glass</span> <span class="r-add">+341</span> <span class="r-tag tag-u">+5 new</span></div>
+      </div>
+      <span class="r-age">4d</span>
+    </div>
+  </div>
+
+  <!-- Preview pane -->
+  <div style="border-top:1px solid var(--b1);background:var(--bg-2)">
+    <div class="ftabs">
+      <div class="ftab act">LEDController.swift <span class="fs tg">+68</span><span class="fs tr">−7</span></div>
+      <div class="ftab">PulseAnimation.swift <span class="fs tg">+42</span></div>
+      <div class="ftab">DNDMonitor.swift <span class="fs tg">+12</span><span class="fs tr">−7</span></div>
+      <div class="ftab">Config.swift <span class="fs tg">+5</span></div>
+    </div>
+    <div style="max-height:200px;overflow-y:auto">
+      <div class="dl dl-h"><span class="dl-n"></span><span class="dl-c">@@ -42,7 +42,14 @@ class LEDController {</span></div>
+      <div class="dl dl-x"><span class="dl-n">42</span><span class="dl-c">    private var displayLink: CVDisplayLink?</span></div>
+      <div class="dl dl-x"><span class="dl-n">43</span><span class="dl-c">    private let ledBridge: LEDBridge</span></div>
+      <div class="dl dl-d"><span class="dl-n">44</span><span class="dl-c">−   private var animationState: AnimationState = .idle</span></div>
+      <div class="dl dl-a"><span class="dl-n">44</span><span class="dl-c">+   private var animationState: AnimationState = .idle</span></div>
+      <div class="dl dl-a"><span class="dl-n">45</span><span class="dl-c">+   private let pulseEngine: PulseAnimationEngine</span></div>
+      <div class="dl dl-a"><span class="dl-n">46</span><span class="dl-c">+   private var dndActive: Bool = false</span></div>
+      <div class="dl dl-x"><span class="dl-n">47</span><span class="dl-c"></span></div>
+      <div class="dl dl-x"><span class="dl-n">48</span><span class="dl-c">    init(bridge: LEDBridge) {</span></div>
+      <div class="dl dl-a"><span class="dl-n">49</span><span class="dl-c">+       self.pulseEngine = PulseAnimationEngine(</span></div>
+      <div class="dl dl-a"><span class="dl-n">50</span><span class="dl-c">+           frequency: .breathing,</span></div>
+      <div class="dl dl-a"><span class="dl-n">51</span><span class="dl-c">+           easing: .easeInOutSine</span></div>
+      <div class="dl dl-a"><span class="dl-n">52</span><span class="dl-c">+       )</span></div>
+    </div>
+  </div>
+
+  <div class="fbar">
+    <div class="fkeys">
+      <span class="fk"><span class="k">j/k</span>stashes</span>
+      <span class="fk"><span class="k">h/l</span>files</span>
+      <span class="fk"><span class="k">⇥</span>close</span>
+      <span class="fk"><span class="k">⏎</span>detail</span>
+      <span class="fk"><span class="k">a</span>apply</span>
+      <span class="fk"><span class="k">p</span>pop</span>
+    </div>
+    <span class="fmode fmode-preview">PREVIEW</span>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     3. DETAIL MODE (Enter)
+     ═══════════════════════════════════════════════════════ -->
+<div class="sec">
+  3 · Detail
+  <span class="dim">⏎ from list · full file tree + diff · esc back</span>
+</div>
+
+<div class="t">
+  <div class="t-bar"><div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div><span class="t-title">nidhi · stash detail</span></div>
+  <!-- Breadcrumb bar -->
+  <div class="hbar">
+    <span class="tgold fw6">0</span>
+    <span class="fw5" style="font-size:13px">feat: camera LED pulse animation for DND mode</span>
+    <span class="h-sep"></span>
+    <span class="td" style="font-size:10px">⎇ main · 3h · a3f2e1b · <span class="tg">+127</span> <span class="tr">−14</span> · 4 files</span>
+  </div>
+
+  <div class="split-h" style="grid-template-columns:200px 1fr;min-height:360px">
+    <!-- File tree -->
+    <div class="tree" style="border-right:1px solid var(--b0)">
+      <div class="tree-grp tg">▾ staged (2)</div>
+      <div class="tree-f act">
+        <span class="tree-fi tg">M</span>
+        <span class="tree-fn">LEDController.swift</span>
+        <span class="tree-fs"><span class="tg">+68</span><span class="tr">−7</span></span>
+      </div>
+      <div class="tree-f">
+        <span class="tree-fi tg">A</span>
+        <span class="tree-fn">PulseAnimation.swift</span>
+        <span class="tree-fs tg">+42</span>
+      </div>
+      <div class="tree-grp ty">▾ working (2)</div>
+      <div class="tree-f">
+        <span class="tree-fi ty">M</span>
+        <span class="tree-fn">DNDMonitor.swift</span>
+        <span class="tree-fs"><span class="tg">+12</span><span class="tr">−7</span></span>
+      </div>
+      <div class="tree-f">
+        <span class="tree-fi ty">M</span>
+        <span class="tree-fn">Config.swift</span>
+        <span class="tree-fs tg">+5</span>
+      </div>
+      <div class="tree-grp" style="color:var(--pink)">▾ untracked (3)</div>
+      <div class="tree-f">
+        <span class="tree-fi" style="color:var(--pink)">?</span>
+        <span class="tree-fn">pulse_test.png</span>
+        <span class="tree-fs">48K</span>
+      </div>
+      <div class="tree-f">
+        <span class="tree-fi" style="color:var(--pink)">?</span>
+        <span class="tree-fn">shader.metal</span>
+        <span class="tree-fs">3.4K</span>
+      </div>
+      <div class="tree-f">
+        <span class="tree-fi" style="color:var(--pink)">?</span>
+        <span class="tree-fn">notes.md</span>
+        <span class="tree-fs">1.2K</span>
+      </div>
+    </div>
+
+    <!-- Diff -->
+    <div class="split-v" style="background:var(--bg-2)">
+      <div style="padding:5px 14px;border-bottom:1px solid var(--b0);display:flex;justify-content:space-between;font-size:11px;background:var(--bg-3)">
+        <span class="fw5">LEDController.swift</span>
+        <span class="td"><span class="tg">+68</span> <span class="tr">−7</span></span>
+      </div>
+      <div style="flex:1;overflow-y:auto">
+        <div class="dl dl-h"><span class="dl-n"></span><span class="dl-c">@@ -42,7 +42,14 @@ class LEDController {</span></div>
+        <div class="dl dl-x"><span class="dl-n">42</span><span class="dl-c">    private var displayLink: CVDisplayLink?</span></div>
+        <div class="dl dl-x"><span class="dl-n">43</span><span class="dl-c">    private let ledBridge: LEDBridge</span></div>
+        <div class="dl dl-d"><span class="dl-n">44</span><span class="dl-c">−   private var animationState: AnimationState = .idle</span></div>
+        <div class="dl dl-a"><span class="dl-n">44</span><span class="dl-c">+   private var animationState: AnimationState = .idle</span></div>
+        <div class="dl dl-a"><span class="dl-n">45</span><span class="dl-c">+   private let pulseEngine: PulseAnimationEngine</span></div>
+        <div class="dl dl-a"><span class="dl-n">46</span><span class="dl-c">+   private var dndActive: Bool = false</span></div>
+        <div class="dl dl-x"><span class="dl-n">47</span><span class="dl-c"></span></div>
+        <div class="dl dl-x"><span class="dl-n">48</span><span class="dl-c">    init(bridge: LEDBridge) {</span></div>
+        <div class="dl dl-x"><span class="dl-n">49</span><span class="dl-c">        self.ledBridge = bridge</span></div>
+        <div class="dl dl-a"><span class="dl-n">50</span><span class="dl-c">+       self.pulseEngine = PulseAnimationEngine(</span></div>
+        <div class="dl dl-a"><span class="dl-n">51</span><span class="dl-c">+           frequency: .breathing,</span></div>
+        <div class="dl dl-a"><span class="dl-n">52</span><span class="dl-c">+           easing: .easeInOutSine,</span></div>
+        <div class="dl dl-a"><span class="dl-n">53</span><span class="dl-c">+           minBrightness: 0.05,</span></div>
+        <div class="dl dl-a"><span class="dl-n">54</span><span class="dl-c">+           maxBrightness: 0.85</span></div>
+        <div class="dl dl-a"><span class="dl-n">55</span><span class="dl-c">+       )</span></div>
+        <div class="dl dl-x"><span class="dl-n">56</span><span class="dl-c">    }</span></div>
+        <div class="dl dl-h"><span class="dl-n"></span><span class="dl-c">@@ -78,6 +85,22 @@ extension LEDController {</span></div>
+        <div class="dl dl-x"><span class="dl-n">85</span><span class="dl-c">    func startAnimation(_ mode: LEDMode) {</span></div>
+        <div class="dl dl-a"><span class="dl-n">86</span><span class="dl-c">+       guard mode == .dndPulse else {</span></div>
+        <div class="dl dl-a"><span class="dl-n">87</span><span class="dl-c">+           startLegacyAnimation(mode)</span></div>
+        <div class="dl dl-a"><span class="dl-n">88</span><span class="dl-c">+           return</span></div>
+        <div class="dl dl-a"><span class="dl-n">89</span><span class="dl-c">+       }</span></div>
+        <div class="dl dl-a"><span class="dl-n">90</span><span class="dl-c">+       // New: DND-aware pulse</span></div>
+        <div class="dl dl-a"><span class="dl-n">91</span><span class="dl-c">+       pulseEngine.start(on: ledBridge)</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="fbar">
+    <div class="fkeys">
+      <span class="fk"><span class="k">j/k</span>files</span>
+      <span class="fk"><span class="k">⇥</span>tree↔diff</span>
+      <span class="fk"><span class="k">↑↓</span>scroll</span>
+      <span class="fk"><span class="k">a</span>apply</span>
+      <span class="fk"><span class="k">p</span>pop</span>
+      <span class="fk"><span class="k">b</span>branch</span>
+      <span class="fk"><span class="k">r</span>rename</span>
+      <span class="fk"><span class="k">esc</span>back</span>
+    </div>
+    <span class="fmode fmode-detail">DETAIL</span>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     4. CONFLICT PREVIEW (before apply/pop)
+     ═══════════════════════════════════════════════════════ -->
+<div class="sec">
+  4 · Conflict Preview
+  <span class="dim">shown after pressing a/p · dry-run merge before committing</span>
+</div>
+
+<div class="t">
+  <div class="t-bar"><div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div><span class="t-title">nidhi · apply preview</span></div>
+  <div class="hbar">
+    <span class="tgold fw6">◆ Apply stash 3</span>
+    <span class="td">→</span>
+    <span class="fw5" style="font-size:12px">experiment: Liquid Glass blur effect prototype</span>
+    <span class="h-sep"></span>
+    <span class="ty" style="font-size:10px">⚡ 1 conflict · 4 clean</span>
+  </div>
+
+  <div>
+    <!-- Conflict status per file -->
+    <div class="conflict-bar conflict-safe">
+      <span class="tg">●</span>
+      <span class="tg fw5">GlassEffect.swift</span>
+      <span class="td" style="font-size:10px">new file — clean apply</span>
+    </div>
+    <div class="conflict-bar conflict-safe">
+      <span class="tg">●</span>
+      <span class="tg fw5">BlurPipeline.swift</span>
+      <span class="td" style="font-size:10px">new file — clean apply</span>
+    </div>
+    <div class="conflict-bar conflict-warn">
+      <span class="ty">⚡</span>
+      <span class="ty fw5">AppDelegate.swift</span>
+      <span class="td" style="font-size:10px">modified since stash — merge required at lines 23-31</span>
+      <span class="spacer"></span>
+      <span style="font-size:10px;color:var(--fg2)">stash: <span class="tg">+12</span><span class="tr">−3</span> · working: <span class="tg">+8</span><span class="tr">−1</span></span>
+    </div>
+    <div class="conflict-bar conflict-safe">
+      <span class="tg">●</span>
+      <span class="tg fw5">Config.swift</span>
+      <span class="td" style="font-size:10px">no overlap — clean apply</span>
+    </div>
+    <div class="conflict-bar conflict-safe">
+      <span class="tg">●</span>
+      <span class="tg fw5">Package.swift</span>
+      <span class="td" style="font-size:10px">unchanged since stash — clean apply</span>
+    </div>
+  </div>
+
+  <!-- Inline diff of the conflict zone -->
+  <div style="border-top:1px solid var(--b0);background:var(--bg-2)">
+    <div style="padding:5px 14px;font-size:10px;color:var(--fg2);border-bottom:1px solid var(--b0);background:var(--bg-3)">
+      <span class="ty fw5">⚡ AppDelegate.swift</span> — conflict zone preview (lines 23-31)
+    </div>
+    <div class="dl dl-h"><span class="dl-n"></span><span class="dl-c">@@ -23,5 +23,9 @@ class AppDelegate: NSObject {</span></div>
+    <div class="dl dl-x"><span class="dl-n">23</span><span class="dl-c">    func applicationDidFinishLaunching() {</span></div>
+    <div class="dl dl-d"><span class="dl-n">24</span><span class="dl-c">−       setupMenuBar()</span></div>
+    <div class="dl dl-d"><span class="dl-n">25</span><span class="dl-c">−       startMonitoring()</span></div>
+    <div class="dl dl-a"><span class="dl-n">24</span><span class="dl-c">+       setupMenuBar(style: .compact)  // stash change</span></div>
+    <div class="dl dl-a"><span class="dl-n">25</span><span class="dl-c">+       startGlassMonitoring()         // stash change</span></div>
+    <div class="dl" style="background:var(--bg-conflict);color:var(--yellow);font-size:11px;padding:2px 14px">
+      <span class="dl-n" style="opacity:0.6">~~</span>
+      <span class="dl-c">  ↑ working tree also modified these lines (setupMenuBar → setupMenuBar(theme:))</span>
+    </div>
+    <div class="dl dl-x"><span class="dl-n">26</span><span class="dl-c">    }</span></div>
+  </div>
+
+  <div class="fbar">
+    <div class="fkeys">
+      <span class="fk"><span class="k">j/k</span>files</span>
+      <span class="fk"><span class="k">a</span>apply anyway</span>
+      <span class="fk"><span class="k">p</span>pop anyway</span>
+      <span class="fk"><span class="k">b</span>branch first</span>
+      <span class="fk"><span class="k">esc</span>cancel</span>
+    </div>
+    <span class="fmode fmode-confirm">⚡ CONFLICT 1/5</span>
+  </div>
+</div>
+
+<div class="note-card">
+  <strong>Killer feature #1: Conflict prediction.</strong> Runs <code>git merge-tree --write-tree</code> (Git 2.38+)
+  to simulate the apply without touching the worktree. Shows per-file status: green (clean), yellow (conflict zone).
+  Inline diff of the conflict area shown below. User can proceed with eyes open, or <code>b</code> to branch first.
+  <strong>No other stash tool does this.</strong>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     5. SEARCH (/  from list)
+     ═══════════════════════════════════════════════════════ -->
+<div class="sec">
+  5 · Search
+  <span class="dim">/ from any screen · fuzzy across messages, files, diff content</span>
+</div>
+
+<div class="t">
+  <div class="t-bar"><div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div><span class="t-title">nidhi · search</span></div>
+
+  <div style="padding:8px 14px;background:var(--bg-2);border-bottom:1px solid var(--b0)">
+    <div class="search-input">
+      <span class="search-icon">⌕</span>
+      <span class="search-text">pulse<span style="opacity:0.3"> animation</span><span class="inp-cur"></span></span>
+      <span class="search-count">4 hits</span>
+    </div>
+    <div class="filter-chips">
+      <span class="chip on">All</span>
+      <span class="chip">Messages</span>
+      <span class="chip">Filenames</span>
+      <span class="chip">Diff content</span>
+      <span class="chip">Branch</span>
+    </div>
+  </div>
+
+  <div>
+    <!-- Result 1 — direct message match -->
+    <div class="r sel">
+      <span class="r-i">0</span>
+      <div class="r-body">
+        <div class="r-msg">feat: camera LED <span class="search-match">pulse</span> animation for DND mode</div>
+        <div style="font-size:10px;color:var(--fg2);margin-top:2px;display:flex;flex-direction:column;gap:1px">
+          <span><span class="td">LEDController.swift:50</span> <span class="fg1">self.<span class="search-match">pulse</span>Engine = <span class="search-match">Pulse</span>AnimationEngine(</span></span>
+          <span><span class="td">PulseAnimation.swift:1</span> <span class="fg1">class <span class="search-match">Pulse</span>AnimationEngine: @Sendable {</span></span>
+        </div>
+      </div>
+      <span class="r-age">3h</span>
+    </div>
+
+    <!-- Result 2 — diff content match -->
+    <div class="r">
+      <span class="r-i">3</span>
+      <div class="r-body">
+        <div class="r-msg">experiment: Liquid Glass blur effect prototype</div>
+        <div style="font-size:10px;color:var(--fg2);margin-top:2px">
+          <span><span class="td">GlassEffect.swift:88</span> <span class="fg1">let <span class="search-match">pulse</span>Anim = CABasicAnimation(keyPath: "opacity")</span></span>
+        </div>
+      </div>
+      <span class="r-age">4d</span>
+    </div>
+
+    <!-- Result 3 -->
+    <div class="r">
+      <span class="r-i">4</span>
+      <div class="r-body">
+        <div class="r-msg">refactor: extract NotificationBridge protocol</div>
+        <div style="font-size:10px;color:var(--fg2);margin-top:2px">
+          <span><span class="td">NotificationBridge.swift:34</span> <span class="fg1">func trigger<span class="search-match">Pulse</span>(count: Int, duration: TimeInterval)</span></span>
+        </div>
+      </div>
+      <span class="r-age">1w</span>
+    </div>
+
+    <!-- Result 4 -->
+    <div class="r">
+      <span class="r-i">5</span>
+      <div class="r-body">
+        <div class="r-msg">debug: verbose camera permission logging</div>
+        <div style="font-size:10px;color:var(--fg2);margin-top:2px">
+          <span><span class="td">CameraAccess.swift:112</span> <span class="fg1">logger.debug("LED <span class="search-match">pulse</span> blocked: camera denied")</span></span>
+        </div>
+      </div>
+      <span class="r-age">2w</span>
+    </div>
+  </div>
+
+  <div style="padding:4px 14px;font-size:10px;color:var(--fg2);border-top:1px solid var(--b0);background:var(--bg-2)">
+    searched 7 stashes · 34 files · 1,847 diff lines
+  </div>
+
+  <div class="fbar">
+    <div class="fkeys">
+      <span class="fk"><span class="k">↑↓</span>results</span>
+      <span class="fk"><span class="k">⏎</span>open</span>
+      <span class="fk"><span class="k">⇥</span>filter</span>
+      <span class="fk"><span class="k">esc</span>close</span>
+    </div>
+    <span class="fmode fmode-search">SEARCH</span>
+  </div>
+</div>
+
+<div class="note-card">
+  <strong>Killer feature #2: Deep search.</strong> Doesn't just match stash messages — searches inside every diff hunk.
+  "Where did I have that <code>CABasicAnimation</code> code?" → found in stash {3}.
+  Filter chips narrow scope: messages-only for quick lookup, diff-content for code archaeology.
+  Results show file:line context inline, highlighted.
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     6. NEW STASH (n from list)
+     ═══════════════════════════════════════════════════════ -->
+<div class="sec">
+  6 · New Stash
+  <span class="dim">n from list · message prompt + scope toggles + push</span>
+</div>
+
+<div class="t">
+  <div class="t-bar"><div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div><span class="t-title">nidhi · new stash</span></div>
+  <div class="hbar">
+    <span class="h-mark">◆</span>
+    <span class="tg fw6">New Stash</span>
+    <span class="h-sep"></span>
+    <span class="td" style="font-size:10px">working tree: <span class="tg">+34</span> <span class="tr">−12</span> · 3 staged · 2 unstaged · 1 untracked</span>
+  </div>
+
+  <div style="padding:12px 14px;background:var(--bg-2)">
+    <!-- Message input -->
+    <div style="margin-bottom:12px">
+      <div style="font-size:9px;text-transform:uppercase;letter-spacing:2px;color:var(--fg2);margin-bottom:4px">Message</div>
+      <div class="inp focused">
+        <span class="inp-val">feat: add CoreBluetooth scanning for LED discovery</span>
+        <span class="inp-cur"></span>
+      </div>
+    </div>
+
+    <!-- Scope toggles -->
+    <div style="margin-bottom:12px">
+      <div style="font-size:9px;text-transform:uppercase;letter-spacing:2px;color:var(--fg2);margin-bottom:6px">Include</div>
+      <div style="display:flex;gap:6px">
+        <div style="flex:1;padding:8px 10px;background:var(--bg-sel);border:1px solid var(--gold-dim);border-radius:4px;cursor:pointer">
+          <div style="font-size:11px;color:var(--gold);font-weight:600">● Staged</div>
+          <div style="font-size:10px;color:var(--fg2);margin-top:2px">3 files · <span class="tg">+28</span><span class="tr">−8</span></div>
+        </div>
+        <div style="flex:1;padding:8px 10px;background:var(--bg-sel);border:1px solid var(--gold-dim);border-radius:4px;cursor:pointer">
+          <div style="font-size:11px;color:var(--gold);font-weight:600">● Unstaged</div>
+          <div style="font-size:10px;color:var(--fg2);margin-top:2px">2 files · <span class="tg">+6</span><span class="tr">−4</span></div>
+        </div>
+        <div style="flex:1;padding:8px 10px;background:var(--bg-3);border:1px solid var(--b0);border-radius:4px;cursor:pointer">
+          <div style="font-size:11px;color:var(--fg2);font-weight:600">○ Untracked</div>
+          <div style="font-size:10px;color:var(--fg2);margin-top:2px">1 file · scanner.swift</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Options -->
+    <div style="display:flex;gap:12px;font-size:11px;color:var(--fg1)">
+      <span>☑ <span class="tgold">Keep index</span> (don't unstage)</span>
+      <span>☐ <span class="td">Patch mode</span> (select hunks)</span>
+      <span>☐ <span class="td">Auto-export</span> after push</span>
+    </div>
+  </div>
+
+  <div class="fbar">
+    <div class="fkeys">
+      <span class="fk"><span class="k">⏎</span>create</span>
+      <span class="fk"><span class="k">⇥</span>cycle scope</span>
+      <span class="fk"><span class="k">^p</span>patch mode</span>
+      <span class="fk"><span class="k">esc</span>cancel</span>
+    </div>
+    <span class="fmode fmode-new">NEW</span>
+  </div>
+</div>
+
+<div class="note-card">
+  <strong>Message-first design.</strong> Cursor starts in the message field — typing a descriptive name is the <em>default path</em>,
+  not an afterthought. Scope cards show exactly what will be included. Toggle with <code>⇥</code>.
+  <code>--keep-index</code> is on by default (sane default — your staged work stays staged).
+  <code>Auto-export</code> option pushes to configured remote ref immediately.
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     7. EXPORT/IMPORT (e from list)
+     ═══════════════════════════════════════════════════════ -->
+<div class="sec">
+  7 · Export / Import
+  <span class="dim">e from list · Git 2.51 stash export → push · i to import</span>
+</div>
+
+<div class="t">
+  <div class="t-bar"><div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div><span class="t-title">nidhi · export</span></div>
+  <div class="hbar">
+    <span style="background:linear-gradient(135deg,var(--orange),#E06844);color:#fff;padding:1px 7px;border-radius:3px;font-size:10px;font-weight:700;letter-spacing:1px">EXPORT</span>
+    <span class="td" style="font-size:12px">select stashes → ref → push</span>
+    <span class="h-sep"></span>
+    <span class="to fw6" style="font-size:11px">3 selected</span>
+  </div>
+
+  <div class="split-h" style="grid-template-columns:1fr 1fr;min-height:260px">
+    <!-- Left: stash selector -->
+    <div style="border-right:1px solid var(--b0);overflow-y:auto">
+      <div class="r" style="padding:4px 14px"><span class="r-ck on">✓</span><span class="r-i" style="font-size:10px">0</span><div class="r-body"><span class="r-msg" style="font-size:12px">feat: camera LED pulse animation</span></div></div>
+      <div class="r" style="padding:4px 14px"><span class="r-ck on">✓</span><span class="r-i" style="font-size:10px">1</span><div class="r-body"><span class="r-msg" style="font-size:12px">wip: Swift 6.2 concurrency migration</span></div></div>
+      <div class="r" style="padding:4px 14px"><span class="r-ck"></span><span class="r-i" style="font-size:10px">2</span><div class="r-body"><span class="r-msg" style="font-size:12px;color:var(--fg1)">fix: menubar icon on wake</span></div></div>
+      <div class="r" style="padding:4px 14px"><span class="r-ck on">✓</span><span class="r-i" style="font-size:10px">3</span><div class="r-body"><span class="r-msg" style="font-size:12px">experiment: Liquid Glass blur</span></div></div>
+      <div class="r" style="padding:4px 14px"><span class="r-ck"></span><span class="r-i" style="font-size:10px">4</span><div class="r-body"><span class="r-msg" style="font-size:12px;color:var(--fg1)">refactor: NotificationBridge</span></div></div>
+      <div class="r" style="padding:4px 14px"><span class="r-ck"></span><span class="r-i" style="font-size:10px">5</span><div class="r-body"><span class="r-msg" style="font-size:12px;color:var(--fg1)">debug: camera permission logging</span></div></div>
+      <div class="r" style="padding:4px 14px"><span class="r-ck"></span><span class="r-i" style="font-size:10px">6</span><div class="r-body"><span class="r-msg" style="font-size:12px;color:var(--fg1)">chore: update Package.resolved</span></div></div>
+    </div>
+
+    <!-- Right: config -->
+    <div style="padding:14px;background:var(--bg-2);display:flex;flex-direction:column;gap:12px">
+      <div>
+        <div style="font-size:9px;text-transform:uppercase;letter-spacing:2px;color:var(--fg2);margin-bottom:4px">Ref</div>
+        <div class="inp focused"><span class="inp-pre">refs/stashes/</span><span class="inp-val">indrasvat</span><span class="inp-cur"></span></div>
+      </div>
+      <div>
+        <div style="font-size:9px;text-transform:uppercase;letter-spacing:2px;color:var(--fg2);margin-bottom:4px">Remote</div>
+        <div class="inp"><span class="inp-val">origin</span><span class="td" style="font-size:10px;margin-left:6px">github.com:indrasvat/drishti-led</span></div>
+      </div>
+      <div style="flex:1">
+        <div style="font-size:9px;text-transform:uppercase;letter-spacing:2px;color:var(--fg2);margin-bottom:4px">Commands</div>
+        <div style="background:var(--bg-0);border:1px solid var(--b0);border-radius:4px;padding:8px 10px;font-size:11px;line-height:1.8;flex:1">
+          <div><span class="td" style="font-style:italic"># export → ref</span></div>
+          <div><span class="tg">$ </span>git stash export <span class="ty">--to-ref</span> <span class="to">refs/stashes/indrasvat</span> \</div>
+          <div>    stash@{0} stash@{1} stash@{3}</div>
+          <div style="margin-top:6px"><span class="td" style="font-style:italic"># push</span></div>
+          <div><span class="tg">$ </span>git push <span class="ty">--no-verify --force</span> origin <span class="to">refs/stashes/indrasvat</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="fbar">
+    <div class="fkeys">
+      <span class="fk"><span class="k">space</span>toggle</span>
+      <span class="fk"><span class="k">a</span>all</span>
+      <span class="fk"><span class="k">⇥</span>edit ref</span>
+      <span class="fk"><span class="k">i</span>switch to import</span>
+      <span class="fk"><span class="k">esc</span>back</span>
+    </div>
+    <span class="btn btn-gold">⏎ Export & Push</span>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     8. RENAME (r on a stash in list)
+     ═══════════════════════════════════════════════════════ -->
+<div class="sec">
+  8 · Rename
+  <span class="dim">r from list · inline message edit · ⏎ confirm · esc cancel</span>
+</div>
+
+<div class="t">
+  <div class="t-bar"><div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div><span class="t-title">nidhi · rename</span></div>
+  <div class="hbar">
+    <span class="h-mark">◆</span>
+    <span class="h-repo">drishti-led</span>
+    <span class="h-br">⎇ main</span>
+    <span class="h-n">7</span>
+    <span class="h-sep"></span>
+    <span class="tgold fw6" style="font-size:11px">Editing message...</span>
+  </div>
+
+  <div>
+    <div class="r"><span class="r-i">0</span><div class="r-body"><div class="r-msg">feat: camera LED pulse animation for DND mode</div><div class="r-meta"><span class="r-br">⎇ main</span> <span class="r-add">+127</span><span class="r-del">−14</span></div></div><span class="r-age">3h</span></div>
+
+    <!-- The row being renamed — inline edit -->
+    <div class="r sel" style="padding:8px 14px">
+      <span class="r-i" style="color:var(--gold-bright)">1</span>
+      <div class="r-body">
+        <div class="rename-input">
+          wip: Swift 6.2 actor isolation — <span class="tgold">Sendable conformance</span><span class="inp-cur"></span>
+        </div>
+        <div class="r-meta" style="margin-top:3px">
+          <span class="r-br">⎇ feat/swift6</span> <span class="r-add">+89</span><span class="r-del">−203</span>
+          <span class="td" style="font-size:9px;margin-left:auto">was: "wip: Swift 6.2 concurrency migration — actor isolation"</span>
+        </div>
+      </div>
+      <span class="r-age">1d</span>
+    </div>
+
+    <div class="r"><span class="r-i">2</span><div class="r-body"><div class="r-msg">fix: menubar icon disappearing on wake from sleep</div><div class="r-meta"><span class="r-br">⎇ main</span> <span class="r-add">+22</span><span class="r-del">−8</span></div></div><span class="r-age">2d</span></div>
+    <div class="r"><span class="r-i">3</span><div class="r-body"><div class="r-msg">experiment: Liquid Glass blur effect prototype</div><div class="r-meta"><span class="r-br">⎇ feat/liquid-glass</span> <span class="r-add">+341</span></div></div><span class="r-age">4d</span></div>
+  </div>
+
+  <div class="fbar">
+    <div class="fkeys">
+      <span class="fk"><span class="k">⏎</span>save</span>
+      <span class="fk"><span class="k">esc</span>cancel</span>
+      <span class="fk"><span class="k">^u</span>clear</span>
+    </div>
+    <span class="fmode" style="color:var(--gold);background:var(--gold-bg)">RENAME</span>
+  </div>
+</div>
+
+<div class="note-card">
+  <strong>Killer feature #3: Rename.</strong> Implemented as <code>git stash drop</code> + <code>git stash store -m "new message" &lt;sha&gt;</code>.
+  The SHA is preserved — only the reflog message changes. Previous message shown dimmed below for reference.
+  This single feature fixes the #1 stash pain: cryptic "WIP on main" messages.
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     9. DROP + UNDO TOAST
+     ═══════════════════════════════════════════════════════ -->
+<div class="sec">
+  9 · Drop + Undo
+  <span class="dim">d to drop · toast with z undo · reflog-based recovery</span>
+</div>
+
+<div class="t">
+  <div class="t-bar"><div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div><span class="t-title">nidhi · ~/src/drishti-led</span></div>
+  <div class="hbar">
+    <span class="h-mark">◆</span>
+    <span class="h-repo">drishti-led</span>
+    <span class="h-br">⎇ main</span>
+    <span class="h-n">6 stashes</span>
+    <span class="h-sep"></span>
+    <span class="h-sync"><span class="h-sync-dot"></span> synced</span>
+    <span class="h-ver">│ 2.51</span>
+  </div>
+
+  <div>
+    <div class="r sel"><span class="r-i">0</span><div class="r-body"><div class="r-msg">feat: camera LED pulse animation for DND mode</div><div class="r-meta"><span class="r-br">⎇ main</span> <span class="r-add">+127</span><span class="r-del">−14</span> <span class="r-tag tag-s">staged</span></div></div><span class="r-age">3h</span></div>
+    <!-- stash {1} was dropped — gap in numbering renumbered -->
+    <div class="r"><span class="r-i">1</span><div class="r-body"><div class="r-msg">fix: menubar icon disappearing on wake from sleep</div><div class="r-meta"><span class="r-br">⎇ main</span> <span class="r-add">+22</span><span class="r-del">−8</span></div></div><span class="r-age">2d</span></div>
+    <div class="r"><span class="r-i">2</span><div class="r-body"><div class="r-msg">experiment: Liquid Glass blur effect prototype</div><div class="r-meta"><span class="r-br">⎇ feat/liquid-glass</span> <span class="r-add">+341</span></div></div><span class="r-age">4d</span></div>
+    <div class="r"><span class="r-i">3</span><div class="r-body"><div class="r-msg">refactor: extract NotificationBridge protocol</div><div class="r-meta"><span class="r-br">⎇ main</span> <span class="r-add">+56</span><span class="r-del">−71</span></div></div><span class="r-age">1w</span></div>
+  </div>
+
+  <!-- Undo toast -->
+  <div class="toast toast-undo">
+    <span class="tb">↩</span>
+    <span>Dropped <span class="fw5">"wip: Swift 6.2 concurrency migration"</span> (was stash@{1})</span>
+    <span class="toast-key">z undo</span>
+  </div>
+
+  <div class="fbar">
+    <div class="fkeys">
+      <span class="fk"><span class="k">z</span>undo drop</span>
+      <span class="fk"><span class="k">j/k</span>nav</span>
+      <span class="fk"><span class="k">⏎</span>detail</span>
+      <span class="fk"><span class="k">n</span>new</span>
+    </div>
+    <span class="fmode fmode-list">LIST</span>
+  </div>
+</div>
+
+<div class="note-card">
+  <strong>Killer feature #4: Undo.</strong> After drop, nidhi remembers the SHA and shows a toast.
+  Press <code>z</code> within 30 seconds to <code>git stash store</code> it back. Even after the toast disappears,
+  <code>z</code> from the list opens a recovery picker showing recently dropped stashes from <code>git fsck --unreachable</code>.
+  Safety net that makes destructive operations stress-free.
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     10. HELP OVERLAY (?)
+     ═══════════════════════════════════════════════════════ -->
+<div class="sec">
+  10 · Help
+  <span class="dim">? from any screen · full keybind reference · esc closes</span>
+</div>
+
+<div class="t">
+  <div class="t-bar"><div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div><span class="t-title">nidhi · help</span></div>
+
+  <div class="modal-bg" style="min-height:380px">
+    <div class="modal-dim">
+      <div class="r sel" style="padding:4px 14px;opacity:0.4"><span class="r-i">0</span><div class="r-body"><span class="r-msg" style="font-size:12px">feat: camera LED pulse animation</span></div></div>
+      <div class="r" style="padding:4px 14px;opacity:0.4"><span class="r-i">1</span><div class="r-body"><span class="r-msg" style="font-size:12px">wip: Swift 6.2 concurrency</span></div></div>
+    </div>
+
+    <div class="modal" style="width:520px;padding:16px 20px">
+      <div class="modal-title" style="text-align:center;margin-bottom:14px">
+        <span class="tgold">◆</span> nidhi keybindings
+      </div>
+
+      <div class="help-grid">
+        <div class="help-section">
+          <div class="help-heading">Navigation</div>
+          <div class="help-row"><span class="help-action">Move down / up</span><span class="k-group"><span class="k">j</span><span class="k">k</span></span></div>
+          <div class="help-row"><span class="help-action">Top / bottom</span><span class="k-group"><span class="k">g</span><span class="k">G</span></span></div>
+          <div class="help-row"><span class="help-action">Switch panels</span><span class="k-group"><span class="k">⇥</span></span></div>
+          <div class="help-row"><span class="help-action">Cycle files</span><span class="k-group"><span class="k">h</span><span class="k">l</span></span></div>
+          <div class="help-row"><span class="help-action">Open detail</span><span class="k-group"><span class="k">⏎</span></span></div>
+          <div class="help-row"><span class="help-action">Back / close</span><span class="k-group"><span class="k">esc</span></span></div>
+          <div class="help-row"><span class="help-action">Scroll diff</span><span class="k-group"><span class="k">^d</span><span class="k">^u</span></span></div>
+        </div>
+
+        <div class="help-section">
+          <div class="help-heading">Actions</div>
+          <div class="help-row"><span class="help-action">Apply (keep stash)</span><span class="k-group"><span class="k">a</span></span></div>
+          <div class="help-row"><span class="help-action">Pop (apply + drop)</span><span class="k-group"><span class="k">p</span></span></div>
+          <div class="help-row"><span class="help-action">Drop</span><span class="k-group"><span class="k">d</span></span></div>
+          <div class="help-row"><span class="help-action">New stash</span><span class="k-group"><span class="k">n</span></span></div>
+          <div class="help-row"><span class="help-action">Rename message</span><span class="k-group"><span class="k">r</span></span></div>
+          <div class="help-row"><span class="help-action">Branch from stash</span><span class="k-group"><span class="k">b</span></span></div>
+          <div class="help-row"><span class="help-action">Undo last action</span><span class="k-group"><span class="k">z</span></span></div>
+        </div>
+
+        <div class="help-section">
+          <div class="help-heading">Search & Filter</div>
+          <div class="help-row"><span class="help-action">Fuzzy search</span><span class="k-group"><span class="k">/</span></span></div>
+          <div class="help-row"><span class="help-action">Filter by branch</span><span class="k-group"><span class="k">f</span><span class="k">b</span></span></div>
+          <div class="help-row"><span class="help-action">Filter stale only</span><span class="k-group"><span class="k">f</span><span class="k">s</span></span></div>
+        </div>
+
+        <div class="help-section">
+          <div class="help-heading">Export / Import (Git 2.51+)</div>
+          <div class="help-row"><span class="help-action">Export mode</span><span class="k-group"><span class="k">e</span></span></div>
+          <div class="help-row"><span class="help-action">Import mode</span><span class="k-group"><span class="k">i</span></span></div>
+          <div class="help-row"><span class="help-action">Toggle selection</span><span class="k-group"><span class="k">space</span></span></div>
+          <div class="help-row"><span class="help-action">Select all / none</span><span class="k-group"><span class="k">A</span><span class="k">N</span></span></div>
+        </div>
+
+        <div class="help-section" style="grid-column:1/-1">
+          <div class="help-heading">Modes</div>
+          <div style="display:flex;gap:16px;margin-top:4px">
+            <span class="fmode fmode-list">LIST</span>
+            <span class="fmode fmode-preview">PREVIEW</span>
+            <span class="fmode fmode-detail">DETAIL</span>
+            <span class="fmode fmode-search">SEARCH</span>
+            <span class="fmode fmode-new">NEW</span>
+            <span class="fmode fmode-export">EXPORT</span>
+            <span class="fmode fmode-confirm">CONFIRM</span>
+            <span class="fmode fmode-help">HELP</span>
+          </div>
+        </div>
+      </div>
+
+      <div style="text-align:center;font-size:10px;color:var(--fg2);margin-top:8px;border-top:1px solid var(--b0);padding-top:8px">
+        nidhi v0.1.0 · Go 1.26 · BubbleTea v2 · Git ≥ 2.38 (≥ 2.51 for export/import)
+      </div>
+    </div>
+  </div>
+
+  <div class="fbar">
+    <div class="fkeys">
+      <span class="fk"><span class="k">esc</span>close</span>
+    </div>
+    <span class="fmode fmode-help">HELP</span>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     DESIGN SPEC SUMMARY
+     ═══════════════════════════════════════════════════════ -->
+<div class="sec" style="margin-top:64px">
+  Design Spec · Architecture
+</div>
+
+<div class="note-card" style="line-height:1.9;border-left-color:var(--gold)">
+  <strong>Theme: Agni (अग्नि)</strong> — warm gold on deep ocean blue-black. Distinct from catppuccin/tokyo night/dracula.
+  Color downsampling handled automatically by <code>colorprofile</code> (built into BubbleTea v2). All colors in CSS vars → Go constants.<br><br>
+
+  <strong>Layout contract:</strong><br>
+  Every screen = <code>hbar</code> (status) + <code>content</code> (varies) + <code>fbar</code> (keybinds + mode badge).<br>
+  Content is one of: full-width list, vertical split (list+preview), horizontal split (tree+diff), overlay (modal/help).<br>
+  LipGloss: <code>JoinVertical</code> for list/preview. <code>JoinHorizontal</code> for tree/diff. <code>Canvas.Layer</code> for modals.<br><br>
+
+  <strong>Keyboard hierarchy (3 tiers):</strong><br>
+  Tier 1 (single key): <code>j k g G a p d n r e / ?</code> — covers 95% of use<br>
+  Tier 2 (double key): <code>fb fs</code> (filter), <code>Shift+J/K</code> (reorder) — power features<br>
+  Tier 3 (ctrl+key): <code>^d ^u ^p ^a ^n</code> — scroll, patch, bulk select<br><br>
+
+  <strong>Navigation flow:</strong><br>
+  <code>LIST ⇄ PREVIEW</code> (⇥ toggle) → <code>DETAIL</code> (⏎, esc back) → actions branch to <code>CONFIRM</code> / <code>RENAME</code> / <code>SEARCH</code> / <code>EXPORT</code><br>
+  Every overlay/mode returns to previous screen with <code>esc</code>. No dead ends.<br><br>
+
+  <strong>Top 5 features (differentiators):</strong><br>
+  1. <strong>Conflict preview</strong> — <code>merge-tree</code> dry-run before apply/pop. Nobody else does this.<br>
+  2. <strong>Deep search</strong> — fuzzy across messages + filenames + diff content. "Where's my code?"<br>
+  3. <strong>Export/Import sync</strong> — Git 2.51 stash export with one-key push to remote.<br>
+  4. <strong>Rename</strong> — inline message edit via drop+store. Fixes the #1 stash UX problem.<br>
+  5. <strong>Undo</strong> — z to recover dropped stashes via reflog. Safety net for destructive ops.<br><br>
+
+  <strong>OOTB defaults:</strong><br>
+  Auto-detects repo, branch, git version. Export ref defaults to <code>refs/stashes/$USER</code>.
+  Stale detection at 14 days. <code>--keep-index</code> on by default for new stashes.
+  Auto-generates readable messages from diff stats when user doesn't provide one.
+  Config via <code>~/.config/nidhi/config.toml</code> or <code>git config --get nidhi.*</code>.
+</div>
+
+<div style="max-width:1020px;margin:40px auto 24px;text-align:center;font-size:12px;color:var(--fg2);font-family:var(--sans)">
+  <span class="tgold fw6">◆</span> निधि · nidhi · "treasure"<br>
+  <span style="font-size:11px;color:var(--fg3)">Go 1.26 · BubbleTea v2 · LipGloss v2 · Bubbles v2 · Git ≥ 2.38</span>
+</div>
+
+</body>
+</html>

@@ -14,6 +14,7 @@
 # Code coverage profiles and other test artifacts
 *.out
 coverage.*
+coverage.html
 *.coverprofile
 profile.cov
 
@@ -25,8 +26,28 @@ go.work
 go.work.sum
 
 # env file
-.env
+*.env
+
+# Debug
+__debug_bin*
 
 # Editor/IDE
-# .idea/
-# .vscode/
+.idea/
+.vscode/
+
+.codemap/
+
+*.log
+.DS_Store
+
+.local/
+dist/
+bin/
+profiles/
+
+# Screenshots (iTerm2 automation artifacts)
+.claude/automations/screenshots/
+.claude/screenshots/
+
+# Root binary
+/nidhi

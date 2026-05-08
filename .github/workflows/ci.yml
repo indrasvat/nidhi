@@ -1,0 +1,171 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+env:
+  GO_VERSION: "1.26"
+  # Opt-in to Node 24 ahead of the June 2026 deprecation of Node 20.
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Install golangci-lint
+        run: go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest
+
+      - name: Run golangci-lint
+        run: golangci-lint run --timeout=3m
+
+  test:
+    name: Test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Install gotestsum
+        run: go install gotest.tools/gotestsum@latest
+
+      - name: Run tests
+        run: |
+          gotestsum --format=standard-verbose -- \
+            -race \
+            -coverprofile=coverage.out \
+            -covermode=atomic \
+            -timeout=300s \
+            ./...
+
+      - name: Check coverage (core packages)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          CORE_COV=$(go tool cover -func=coverage.out | grep '^github.com/indrasvat/nidhi/internal/core/' | awk '{sum+=$NF; n++} END {if(n>0) printf "%.1f", sum/n; else print "0.0"}')
+          GIT_COV=$(go tool cover -func=coverage.out | grep '^github.com/indrasvat/nidhi/internal/git/' | awk '{sum+=$NF; n++} END {if(n>0) printf "%.1f", sum/n; else print "0.0"}')
+          TOTAL_COV=$(go tool cover -func=coverage.out | tail -1 | awk '{print $NF}')
+
+          echo "Coverage: total=$TOTAL_COV, internal/core=$CORE_COV%, internal/git=$GIT_COV%"
+
+          check_coverage() {
+            local pkg=$1
+            local cov=$2
+            local min=70.0
+            if [ "$(echo "$cov < $min" | bc -l)" -eq 1 ]; then
+              echo "FAIL: $pkg coverage $cov% < $min%"
+              return 1
+            else
+              echo "PASS: $pkg coverage $cov% >= $min%"
+              return 0
+            fi
+          }
+
+          FAILED=0
+          check_coverage "internal/core" "$CORE_COV" || FAILED=1
+          check_coverage "internal/git" "$GIT_COV" || FAILED=1
+
+          if [ "$FAILED" -eq 1 ]; then
+            echo "::error::Coverage below 70% threshold on core packages"
+            exit 1
+          fi
+
+      - name: Upload coverage
+        if: matrix.os == 'ubuntu-latest'
+        uses: codecov/codecov-action@v4
+        with:
+          files: coverage.out
+          flags: unittests
+          fail_ci_if_error: false
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+      - name: Upload coverage artifact
+        if: matrix.os == 'ubuntu-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage.out
+          retention-days: 30
+
+  build:
+    name: Build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Build binary
+        run: make build
+
+      - name: Verify binary
+        run: |
+          ./bin/nidhi --version
+          ./bin/nidhi --help
+
+      - name: Verify goreleaser config
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          go install github.com/goreleaser/goreleaser/v2@latest
+          goreleaser check
+
+  e2e:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+    needs: [lint, test, build]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Install gotestsum
+        run: go install gotest.tools/gotestsum@latest
+
+      - name: Run E2E tests
+        run: |
+          gotestsum --format=standard-verbose -- \
+            -v \
+            -timeout=600s \
+            -count=1 \
+            ./internal/e2e/...
+        env:
+          NIDHI_SCREENSHOT_TEST: "0"

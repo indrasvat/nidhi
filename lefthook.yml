@@ -1,0 +1,16 @@
+# lefthook.yml — nidhi git hooks
+# Install: make install-hooks (runs `lefthook install`)
+
+pre-commit:
+  parallel: true
+  commands:
+    lint:
+      run: make lint
+      stage_fixed: true
+    test-unit:
+      run: go test -short -count=1 ./...
+
+pre-push:
+  commands:
+    test-full:
+      run: make test
