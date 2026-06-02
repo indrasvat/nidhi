@@ -50,6 +50,10 @@ func TestAgni_AllColorTokensPresent(t *testing.T) {
 		{"DiffAddedBg", th.DiffAddedBg(), "#1A2E1A"},
 		{"DiffRemovedFg", th.DiffRemovedFg(), "#FF5F6D"},
 		{"DiffRemovedBg", th.DiffRemovedBg(), "#2E1A1A"},
+		{"DiffAddedEmphFg", th.DiffAddedEmphFg(), "#A8F0B8"},
+		{"DiffAddedEmphBg", th.DiffAddedEmphBg(), "#264D26"},
+		{"DiffRemovedEmphFg", th.DiffRemovedEmphFg(), "#FF8A94"},
+		{"DiffRemovedEmphBg", th.DiffRemovedEmphBg(), "#4D2626"},
 		{"DiffHunk", th.DiffHunk(), "#61AFEF"},
 	}
 
@@ -74,11 +78,14 @@ func TestAgni_TokenCount(t *testing.T) {
 		th.SemanticRed(), th.SemanticYellow(), th.SemanticBlue(),
 		th.SemanticPurple(),
 		th.DiffAddedFg(), th.DiffAddedBg(),
-		th.DiffRemovedFg(), th.DiffRemovedBg(), th.DiffHunk(),
+		th.DiffRemovedFg(), th.DiffRemovedBg(),
+		th.DiffAddedEmphFg(), th.DiffAddedEmphBg(),
+		th.DiffRemovedEmphFg(), th.DiffRemovedEmphBg(),
+		th.DiffHunk(),
 	}
 
-	if len(tokens) != 21 {
-		t.Errorf("token count = %d, want 21", len(tokens))
+	if len(tokens) != 25 {
+		t.Errorf("token count = %d, want 25", len(tokens))
 	}
 }
 
@@ -100,6 +107,8 @@ func TestAgni_StyleFactories(t *testing.T) {
 		{"StaleStyle", func() string { return th.StaleStyle().Render("test") }},
 		{"DiffAddedStyle", func() string { return th.DiffAddedStyle().Render("test") }},
 		{"DiffRemovedStyle", func() string { return th.DiffRemovedStyle().Render("test") }},
+		{"DiffAddedEmphStyle", func() string { return th.DiffAddedEmphStyle().Render("test") }},
+		{"DiffRemovedEmphStyle", func() string { return th.DiffRemovedEmphStyle().Render("test") }},
 		{"DiffHunkStyle", func() string { return th.DiffHunkStyle().Render("test") }},
 	}
 
