@@ -24,9 +24,9 @@ const (
 type DiffLine struct {
 	Type     DiffLineType
 	Content  string
-	OldNum   int          // Line number in the old file (0 if not applicable).
-	NewNum   int          // Line number in the new file (0 if not applicable).
-	Emphasis []CharRange  // Byte ranges for word-level emphasis (nil = no emphasis).
+	OldNum   int         // Line number in the old file (0 if not applicable).
+	NewNum   int         // Line number in the new file (0 if not applicable).
+	Emphasis []CharRange // Byte ranges for word-level emphasis (nil = no emphasis).
 }
 
 // DiffViewModel manages a scrollable diff view with syntax coloring.

@@ -83,9 +83,9 @@ const (
 
 // edit is a single diff operation referencing tokens.
 type edit struct {
-	op    editOp
-	aIdx  int // index into a tokens (-1 for insert)
-	bIdx  int // index into b tokens (-1 for delete)
+	op   editOp
+	aIdx int // index into a tokens (-1 for insert)
+	bIdx int // index into b tokens (-1 for delete)
 }
 
 // myersDiff computes the shortest edit script between two token slices
