@@ -32,6 +32,10 @@ type Theme interface {
 	DiffAddedBg() color.Color
 	DiffRemovedFg() color.Color
 	DiffRemovedBg() color.Color
+	DiffAddedEmphFg() color.Color
+	DiffAddedEmphBg() color.Color
+	DiffRemovedEmphFg() color.Color
+	DiffRemovedEmphBg() color.Color
 	DiffHunk() color.Color
 
 	BaseStyle() lipgloss.Style
@@ -45,6 +49,8 @@ type Theme interface {
 	StaleStyle() lipgloss.Style
 	DiffAddedStyle() lipgloss.Style
 	DiffRemovedStyle() lipgloss.Style
+	DiffAddedEmphStyle() lipgloss.Style
+	DiffRemovedEmphStyle() lipgloss.Style
 	DiffHunkStyle() lipgloss.Style
 
 	Name() string

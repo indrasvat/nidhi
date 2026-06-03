@@ -33,6 +33,11 @@ const (
 	agniDiffRemovedFg = "#FF5F6D"
 	agniDiffRemovedBg = "#2E1A1A"
 	agniDiffHunk      = "#61AFEF"
+
+	agniDiffAddedEmphFg   = "#A8F0B8"
+	agniDiffAddedEmphBg   = "#264D26"
+	agniDiffRemovedEmphFg = "#FF8A94"
+	agniDiffRemovedEmphBg = "#4D2626"
 )
 
 // Agni implements the Theme interface with the Agni color scheme.
@@ -64,11 +69,15 @@ func (a *Agni) SemanticYellow() color.Color { return lipgloss.Color(agniSemantic
 func (a *Agni) SemanticBlue() color.Color   { return lipgloss.Color(agniSemanticBlue) }
 func (a *Agni) SemanticPurple() color.Color { return lipgloss.Color(agniSemanticPurple) }
 
-func (a *Agni) DiffAddedFg() color.Color   { return lipgloss.Color(agniDiffAddedFg) }
-func (a *Agni) DiffAddedBg() color.Color   { return lipgloss.Color(agniDiffAddedBg) }
-func (a *Agni) DiffRemovedFg() color.Color { return lipgloss.Color(agniDiffRemovedFg) }
-func (a *Agni) DiffRemovedBg() color.Color { return lipgloss.Color(agniDiffRemovedBg) }
-func (a *Agni) DiffHunk() color.Color      { return lipgloss.Color(agniDiffHunk) }
+func (a *Agni) DiffAddedFg() color.Color       { return lipgloss.Color(agniDiffAddedFg) }
+func (a *Agni) DiffAddedBg() color.Color       { return lipgloss.Color(agniDiffAddedBg) }
+func (a *Agni) DiffRemovedFg() color.Color     { return lipgloss.Color(agniDiffRemovedFg) }
+func (a *Agni) DiffRemovedBg() color.Color     { return lipgloss.Color(agniDiffRemovedBg) }
+func (a *Agni) DiffAddedEmphFg() color.Color   { return lipgloss.Color(agniDiffAddedEmphFg) }
+func (a *Agni) DiffAddedEmphBg() color.Color   { return lipgloss.Color(agniDiffAddedEmphBg) }
+func (a *Agni) DiffRemovedEmphFg() color.Color { return lipgloss.Color(agniDiffRemovedEmphFg) }
+func (a *Agni) DiffRemovedEmphBg() color.Color { return lipgloss.Color(agniDiffRemovedEmphBg) }
+func (a *Agni) DiffHunk() color.Color          { return lipgloss.Color(agniDiffHunk) }
 
 func (a *Agni) BaseStyle() lipgloss.Style {
 	return lipgloss.NewStyle().
@@ -125,6 +134,20 @@ func (a *Agni) DiffRemovedStyle() lipgloss.Style {
 	return lipgloss.NewStyle().
 		Foreground(a.DiffRemovedFg()).
 		Background(a.DiffRemovedBg())
+}
+
+func (a *Agni) DiffAddedEmphStyle() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Foreground(a.DiffAddedEmphFg()).
+		Background(a.DiffAddedEmphBg()).
+		Bold(true)
+}
+
+func (a *Agni) DiffRemovedEmphStyle() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Foreground(a.DiffRemovedEmphFg()).
+		Background(a.DiffRemovedEmphBg()).
+		Bold(true)
 }
 
 func (a *Agni) DiffHunkStyle() lipgloss.Style {

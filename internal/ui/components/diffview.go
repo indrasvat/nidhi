@@ -22,10 +22,11 @@ const (
 
 // DiffLine represents a single parsed line from a unified diff.
 type DiffLine struct {
-	Type    DiffLineType
-	Content string
-	OldNum  int // Line number in the old file (0 if not applicable).
-	NewNum  int // Line number in the new file (0 if not applicable).
+	Type     DiffLineType
+	Content  string
+	OldNum   int         // Line number in the old file (0 if not applicable).
+	NewNum   int         // Line number in the new file (0 if not applicable).
+	Emphasis []CharRange // Byte ranges for word-level emphasis (nil = no emphasis).
 }
 
 // DiffViewModel manages a scrollable diff view with syntax coloring.
@@ -52,6 +53,7 @@ func NewDiffViewModel(th theme.Theme, width, height int) DiffViewModel {
 // SetContent parses and displays a unified diff string.
 func (d *DiffViewModel) SetContent(diffStr string) {
 	d.lines = parseDiff(diffStr)
+	annotateEmphasis(d.lines)
 	d.offset = 0
 	d.ready = len(d.lines) > 0
 }
@@ -159,6 +161,16 @@ func (d *DiffViewModel) renderLines() string {
 		Foreground(th.DiffRemovedFg()).
 		Background(th.DiffRemovedBg())
 
+	addedEmphStyle := lipgloss.NewStyle().
+		Foreground(th.DiffAddedEmphFg()).
+		Background(th.DiffAddedEmphBg()).
+		Bold(true)
+
+	removedEmphStyle := lipgloss.NewStyle().
+		Foreground(th.DiffRemovedEmphFg()).
+		Background(th.DiffRemovedEmphBg()).
+		Bold(true)
+
 	hunkStyle := lipgloss.NewStyle().
 		Foreground(th.DiffHunk()).
 		Background(bg).
@@ -200,14 +212,22 @@ func (d *DiffViewModel) renderLines() string {
 			} else {
 				lineNum = lineNumStyle.Render("")
 			}
-			content = addedStyle.Render(padToWidth(dl.Content, contentWidth))
+			if len(dl.Emphasis) > 0 {
+				content = renderWithEmphasis(dl.Content, dl.Emphasis, addedStyle, addedEmphStyle, contentWidth)
+			} else {
+				content = addedStyle.Render(padToWidth(dl.Content, contentWidth))
+			}
 		case DiffLineRemoved:
 			if dl.OldNum > 0 {
 				lineNum = lineNumStyle.Render(fmt.Sprintf("%d", dl.OldNum))
 			} else {
 				lineNum = lineNumStyle.Render("")
 			}
-			content = removedStyle.Render(padToWidth(dl.Content, contentWidth))
+			if len(dl.Emphasis) > 0 {
+				content = renderWithEmphasis(dl.Content, dl.Emphasis, removedStyle, removedEmphStyle, contentWidth)
+			} else {
+				content = removedStyle.Render(padToWidth(dl.Content, contentWidth))
+			}
 		case DiffLineHunk:
 			lineNum = lineNumStyle.Render("")
 			content = hunkStyle.Render(padToWidth(dl.Content, contentWidth))
@@ -237,6 +257,52 @@ func (d *DiffViewModel) renderLines() string {
 	}
 
 	return strings.Join(rendered, "\n")
+}
+
+// renderWithEmphasis renders a diff line with word-level emphasis.
+// Non-emphasized portions use baseStyle, emphasized portions use emphStyle.
+func renderWithEmphasis(content string, ranges []CharRange, baseStyle, emphStyle lipgloss.Style, width int) string {
+	var b strings.Builder
+	pos := 0
+
+	for _, r := range ranges {
+		start := r.Start
+		end := r.End
+
+		// Clamp to string bounds.
+		if start > len(content) {
+			start = len(content)
+		}
+		if end > len(content) {
+			end = len(content)
+		}
+
+		// Render non-emphasized segment before this range.
+		if pos < start {
+			b.WriteString(baseStyle.Render(content[pos:start]))
+		}
+
+		// Render emphasized segment.
+		if start < end {
+			b.WriteString(emphStyle.Render(content[start:end]))
+		}
+
+		pos = end
+	}
+
+	// Render remaining non-emphasized content after the last range.
+	if pos < len(content) {
+		b.WriteString(baseStyle.Render(content[pos:]))
+	}
+
+	// Pad to fill the content width.
+	rendered := b.String()
+	renderedWidth := lipgloss.Width(rendered)
+	if renderedWidth < width {
+		rendered += baseStyle.Render(strings.Repeat(" ", width-renderedWidth))
+	}
+
+	return rendered
 }
 
 // padToWidth pads a string with spaces to the target width.
