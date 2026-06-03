@@ -412,6 +412,13 @@ Phase 5: Polish (v1.0.0) — "Release"
   - Large changed line pairs now fall back to a single full-content emphasis range after the diff prefix, preserving visual change highlighting without quadratic trace growth
   - Added focused tests for long-line and high-token fallback behavior
 
+- Added SemVer-based GitHub release support
+  - GoReleaser now publishes exactly macOS Apple Silicon (`darwin/arm64`) plus Linux (`linux/amd64`, `linux/arm64`) tarballs with checksums
+  - Release workflow now triggers on strict `v*.*.*` tags and supports manual snapshot runs
+  - Reworked `install.sh` into a POSIX `sh` installer with Agni-styled banner, SemVer validation, platform detection, checksum verification, binary self-check, and clear PATH guidance
+  - Added `scripts/test-install.sh` and `make install-script-test` to exercise the installer against a local fake GitHub release
+  - Verified installer visuals with shux screenshots under `.shux/out/`
+
 ## Task List
 
 | # | Task | Phase | Status | Depends On |

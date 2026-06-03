@@ -1,99 +1,157 @@
-#!/usr/bin/env bash
-set -euo pipefail
+#!/bin/sh
+set -eu
 
 # nidhi installer
-# Usage: curl -sSfL https://raw.githubusercontent.com/indrasvat/nidhi/main/install.sh | bash
-#        curl ... | bash -s -- --version v0.1.0 --dir ~/.local/bin
+# Usage:
+#   curl -sSfL https://raw.githubusercontent.com/indrasvat/nidhi/main/install.sh | sh
+#   curl -sSfL https://raw.githubusercontent.com/indrasvat/nidhi/main/install.sh | sh -s -- --version v0.1.0 --dir "$HOME/.local/bin"
 
 REPO="indrasvat/nidhi"
 BINARY="nidhi"
-DEFAULT_DIR="${HOME}/.local/bin"
-
-# --- Colors (Agni palette: ember on deep ocean) -------------------------------
+DEFAULT_DIR="${NIDHI_INSTALL_DIR:-${HOME}/.local/bin}"
+API_BASE_URL="${NIDHI_INSTALL_API_BASE_URL:-https://api.github.com/repos/${REPO}}"
+RELEASE_BASE_URL="${NIDHI_INSTALL_RELEASE_BASE_URL:-https://github.com/${REPO}/releases/download}"
 
 setup_colors() {
-    if [[ -n "${NO_COLOR:-}" ]] || [[ ! -t 1 ]]; then
+    if [ -n "${NO_COLOR:-}" ] || [ ! -t 1 ]; then
         BOLD=""
         RESET=""
         GOLD=""
+        BRIGHT=""
         AQUA=""
+        BLUE=""
+        PURPLE=""
         GREEN=""
         RED=""
         YELLOW=""
+        BG_DEEP=""
+        BG_SURFACE=""
         TEXT=""
         SUBTEXT=""
+        DIM=""
     else
-        BOLD=$'\033[1m'
-        RESET=$'\033[0m'
-        GOLD=$'\033[38;2;212;162;76m'
-        AQUA=$'\033[38;2;106;192;200m'
-        GREEN=$'\033[38;2;134;200;126m'
-        RED=$'\033[38;2;220;106;106m'
-        YELLOW=$'\033[38;2;232;180;90m'
-        TEXT=$'\033[38;2;220;220;220m'
-        SUBTEXT=$'\033[38;2;140;145;160m'
+        BOLD="$(printf '\033[1m')"
+        RESET="$(printf '\033[0m')"
+        GOLD="$(printf '\033[38;2;212;160;80m')"
+        BRIGHT="$(printf '\033[38;2;232;184;90m')"
+        AQUA="$(printf '\033[38;2;78;201;176m')"
+        BLUE="$(printf '\033[38;2;97;175;239m')"
+        PURPLE="$(printf '\033[38;2;198;120;221m')"
+        GREEN="$(printf '\033[38;2;115;217;144m')"
+        RED="$(printf '\033[38;2;255;95;109m')"
+        YELLOW="$(printf '\033[38;2;229;192;123m')"
+        BG_DEEP="$(printf '\033[48;2;7;9;14m')"
+        BG_SURFACE="$(printf '\033[48;2;15;18;25m')"
+        TEXT="$(printf '\033[38;2;200;204;212m')"
+        SUBTEXT="$(printf '\033[38;2;107;114;128m')"
+        DIM="$(printf '\033[38;2;61;68;80m')"
     fi
 }
 
 banner() {
-    local cols
-    cols=$(tput cols 2>/dev/null || echo 80)
-    if [[ "${cols}" -lt 70 ]]; then
+    cols="$(tput cols 2>/dev/null || printf '80')"
+    if [ "${cols}" -lt 70 ]; then
         return
     fi
+
     printf '\n'
-    printf '%s' "${GOLD}"
-    printf '   ███╗   ██╗ ██╗ ██████╗  ██╗  ██╗ ██╗\n'
-    printf '   ████╗  ██║ ██║ ██╔══██╗ ██║  ██║ ██║\n'
-    printf '   ██╔██╗ ██║ ██║ ██║  ██║ ███████║ ██║\n'
-    printf '   ██║╚██╗██║ ██║ ██║  ██║ ██╔══██║ ██║\n'
-    printf '   ██║ ╚████║ ██║ ██████╔╝ ██║  ██║ ██║\n'
-    printf '   ╚═╝  ╚═══╝ ╚═╝ ╚═════╝  ╚═╝  ╚═╝ ╚═╝\n'
-    printf '%s' "${RESET}"
-    printf '%s     purpose-built TUI for git stash mastery%s\n\n' "${SUBTEXT}" "${RESET}"
+    printf '%s%s███╗   ██╗██╗██████╗ ██╗  ██╗██╗%s\n' "${BG_DEEP}" "${BRIGHT}" "${RESET}"
+    printf '%s%s████╗  ██║██║██╔══██╗██║  ██║██║%s\n' "${BG_DEEP}" "${BRIGHT}" "${RESET}"
+    printf '%s%s██╔██╗ ██║██║██║  ██║███████║██║%s\n' "${BG_DEEP}" "${GOLD}" "${RESET}"
+    printf '%s%s██║╚██╗██║██║██║  ██║██╔══██║██║%s\n' "${BG_DEEP}" "${GOLD}" "${RESET}"
+    printf '%s%s██║ ╚████║██║██████╔╝██║  ██║██║%s\n' "${BG_DEEP}" "${YELLOW}" "${RESET}"
+    printf '%s%s╚═╝  ╚═══╝╚═╝╚═════╝ ╚═╝  ╚═╝╚═╝%s\n' "${BG_DEEP}" "${DIM}" "${RESET}"
+    printf '%s%s  purpose-built TUI for git stash mastery%s\n' "${BG_DEEP}" "${SUBTEXT}" "${RESET}"
+    printf '%s%s  Agni installer · semver GitHub releases%s\n\n' "${BG_DEEP}" "${AQUA}" "${RESET}"
 }
 
-info()       { printf '  %s→%s %s%s%s\n' "${AQUA}" "${RESET}" "${TEXT}" "$1" "${RESET}"; }
-success()    { printf '  %s✓%s %s%s%s\n' "${GREEN}" "${RESET}" "${TEXT}" "$1" "${RESET}"; }
-warn()       { printf '  %s! %s%s\n' "${YELLOW}" "$1" "${RESET}"; }
-error_exit() { printf '  %s✗ %s%s\n' "${RED}" "$1" "${RESET}" >&2; exit 1; }
+info() {
+    printf '  %s◆%s %s%s%s\n' "${BLUE}" "${RESET}" "${TEXT}" "$1" "${RESET}"
+}
+
+success() {
+    printf '  %s✓%s %s%s%s\n' "${GREEN}" "${RESET}" "${TEXT}" "$1" "${RESET}"
+}
+
+warn() {
+    printf '  %s! %s%s\n' "${YELLOW}" "$1" "${RESET}"
+}
+
+error_exit() {
+    printf '  %s✗%s %s%s%s\n' "${RED}" "${RESET}" "${TEXT}" "$1" "${RESET}" >&2
+    exit 1
+}
 
 step() {
-    local n="$1" total="$2" msg="$3"
-    printf '\n%s%s[%s/%s]%s %s%s%s%s\n' "${BOLD}" "${GOLD}" "${n}" "${total}" "${RESET}" "${BOLD}" "${TEXT}" "${msg}" "${RESET}"
+    printf '\n%s%s %s/%s %s%s%s %s%s%s\n' "${BG_SURFACE}" "${GOLD}" "$1" "$2" "${RESET}" "${BOLD}" "${TEXT}" "$3" "${SUBTEXT}" "${RESET}"
 }
 
-# --- Argument parsing ---------------------------------------------------------
+shorten() {
+    text="$1"
+    max="$2"
+    if [ "${#text}" -le "${max}" ]; then
+        printf '%s' "${text}"
+        return
+    fi
+
+    keep=$((max - 3))
+    printf '%s...' "$(printf '%s' "${text}" | cut -c 1-"${keep}")"
+}
+
+release_panel() {
+    release_value="$(shorten "${VERSION}" 42)"
+    artifact_value="$(shorten "${TARBALL}" 42)"
+    install_value="$(shorten "${INSTALL_DIR}" 42)"
+
+    printf '\n'
+    printf '%s╭────────────────────────────────────────────────────────╮%s\n' "${DIM}" "${RESET}"
+    printf '%s│%s %srelease%s   %-42s %s│%s\n' "${DIM}" "${RESET}" "${GOLD}" "${RESET}" "${release_value}" "${DIM}" "${RESET}"
+    printf '%s│%s %sartifact%s  %-42s %s│%s\n' "${DIM}" "${RESET}" "${PURPLE}" "${RESET}" "${artifact_value}" "${DIM}" "${RESET}"
+    printf '%s│%s %sinstall%s   %-42s %s│%s\n' "${DIM}" "${RESET}" "${AQUA}" "${RESET}" "${install_value}" "${DIM}" "${RESET}"
+    printf '%s╰────────────────────────────────────────────────────────╯%s\n' "${DIM}" "${RESET}"
+}
 
 usage() {
     printf '%s%snidhi installer%s\n\n' "${BOLD}" "${TEXT}" "${RESET}"
     printf '%sUsage:%s\n' "${SUBTEXT}" "${RESET}"
-    printf '  curl -sSfL https://raw.githubusercontent.com/%s/main/install.sh | bash\n' "${REPO}"
-    printf '  curl ... | bash -s -- [OPTIONS]\n\n'
+    printf '  curl -sSfL https://raw.githubusercontent.com/%s/main/install.sh | sh\n' "${REPO}"
+    printf '  curl -sSfL https://raw.githubusercontent.com/%s/main/install.sh | sh -s -- [OPTIONS]\n\n' "${REPO}"
     printf '%sOptions:%s\n' "${SUBTEXT}" "${RESET}"
-    printf '  %s--version VERSION%s  Install specific version (e.g. v0.1.0)\n' "${TEXT}" "${RESET}"
+    printf '  %s--version VERSION%s  Install a specific SemVer tag, e.g. v0.1.0\n' "${TEXT}" "${RESET}"
     printf '  %s--dir DIRECTORY%s    Install directory (default: %s)\n' "${TEXT}" "${RESET}" "${DEFAULT_DIR}"
     printf '  %s--help%s             Show this help\n' "${TEXT}" "${RESET}"
     exit 0
+}
+
+normalize_version() {
+    case "${VERSION}" in
+        "") return ;;
+        v*) ;;
+        *) VERSION="v${VERSION}" ;;
+    esac
+
+    if ! printf '%s\n' "${VERSION}" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$'; then
+        error_exit "Version must be a SemVer tag like v0.1.0; got ${VERSION}"
+    fi
 }
 
 parse_args() {
     VERSION=""
     INSTALL_DIR="${DEFAULT_DIR}"
 
-    while [[ $# -gt 0 ]]; do
+    while [ "$#" -gt 0 ]; do
         case "$1" in
             --version)
-                if [[ $# -lt 2 ]]; then error_exit "--version requires a value"; fi
+                [ "$#" -ge 2 ] || error_exit "--version requires a value"
                 VERSION="$2"
                 shift 2
                 ;;
             --dir)
-                if [[ $# -lt 2 ]]; then error_exit "--dir requires a value"; fi
+                [ "$#" -ge 2 ] || error_exit "--dir requires a value"
                 INSTALL_DIR="$2"
                 shift 2
                 ;;
-            --help)
+            --help|-h)
                 usage
                 ;;
             *)
@@ -101,9 +159,9 @@ parse_args() {
                 ;;
         esac
     done
-}
 
-# --- Dependency checks --------------------------------------------------------
+    normalize_version
+}
 
 check_dependencies() {
     if command -v curl >/dev/null 2>&1; then
@@ -118,133 +176,130 @@ check_dependencies() {
 
     if command -v shasum >/dev/null 2>&1; then
         HASHER="shasum"
-        success "Using shasum for verification"
+        success "Using shasum for checksum verification"
     elif command -v sha256sum >/dev/null 2>&1; then
         HASHER="sha256sum"
-        success "Using sha256sum for verification"
+        success "Using sha256sum for checksum verification"
     else
         error_exit "shasum or sha256sum is required"
     fi
 
-    if ! command -v tar >/dev/null 2>&1; then
-        error_exit "tar is required"
-    fi
+    command -v tar >/dev/null 2>&1 || error_exit "tar is required"
+    command -v mktemp >/dev/null 2>&1 || error_exit "mktemp is required"
 }
 
-# --- Platform detection -------------------------------------------------------
-
 detect_platform() {
-    local os arch
-
     os="$(uname -s)"
     case "${os}" in
         Darwin) OS="darwin" ;;
-        Linux)  OS="linux" ;;
-        *)      error_exit "Unsupported operating system: ${os} (Windows users: download from the Releases page)" ;;
+        Linux) OS="linux" ;;
+        *) error_exit "Unsupported operating system: ${os}" ;;
     esac
 
     arch="$(uname -m)"
     case "${arch}" in
-        x86_64)  ARCH="amd64" ;;
-        arm64)   ARCH="arm64" ;;
-        aarch64) ARCH="arm64" ;;
-        *)       error_exit "Unsupported architecture: ${arch}" ;;
+        arm64|aarch64) ARCH="arm64" ;;
+        x86_64|amd64)
+            if [ "${OS}" = "darwin" ]; then
+                error_exit "Only Apple Silicon macOS binaries are published. Build from source on Intel macOS."
+            fi
+            ARCH="amd64"
+            ;;
+        *) error_exit "Unsupported architecture: ${arch}" ;;
     esac
 
     success "Platform: ${OS}/${ARCH}"
 }
 
-# --- Version resolution -------------------------------------------------------
-
-# fetch_url prints the body of a successful GET (200), or returns non-zero.
-# Distinguishes 404 (resource missing, e.g. no stable release yet) from
-# network/auth failures so the caller can fall back gracefully.
 fetch_url() {
-    local url="$1"
-    if [[ "${DOWNLOADER}" == "curl" ]]; then
-        curl -sSfL "${url}" 2>/dev/null
+    url="$1"
+    if [ "${DOWNLOADER}" = "curl" ]; then
+        curl -sSfL --retry 3 --retry-delay 1 --connect-timeout 10 "${url}" 2>/dev/null
     else
-        wget -qO- "${url}" 2>/dev/null
+        wget -qO- --tries=3 --timeout=30 "${url}" 2>/dev/null
     fi
 }
 
-# parse_first_tag pulls the first tag_name out of a /releases or /releases/latest
-# JSON response. The /releases endpoint returns newest-first by default, so the
-# first match is the most recent release (including pre-releases).
 parse_first_tag() {
-    grep -m1 '"tag_name"' | sed -E 's/.*"tag_name": *"([^"]+)".*/\1/'
+    sed -n 's/.*"tag_name":[[:space:]]*"\([^"]*\)".*/\1/p' | head -n 1
 }
 
 get_latest_version() {
-    local response tag
+    response="$(fetch_url "${API_BASE_URL}/releases/latest" || true)"
+    tag="$(printf '%s\n' "${response}" | parse_first_tag || true)"
 
-    # Prefer the stable release (excludes pre-releases by GitHub policy).
-    response="$(fetch_url "https://api.github.com/repos/${REPO}/releases/latest" || true)"
-    tag="$(echo "${response}" | parse_first_tag || true)"
-
-    # Fall back to /releases (includes pre-releases) when no stable release
-    # exists yet. Warn the user so they know they are getting a pre-release.
-    if [[ -z "${tag}" ]]; then
-        response="$(fetch_url "https://api.github.com/repos/${REPO}/releases?per_page=1" || true)"
-        tag="$(echo "${response}" | parse_first_tag || true)"
-        if [[ -n "${tag}" ]]; then
-            warn "No stable release yet — installing pre-release ${tag}"
+    if [ -z "${tag}" ]; then
+        response="$(fetch_url "${API_BASE_URL}/releases?per_page=1" || true)"
+        tag="$(printf '%s\n' "${response}" | parse_first_tag || true)"
+        if [ -n "${tag}" ]; then
+            warn "No stable release found; installing pre-release ${tag}"
         fi
     fi
 
-    if [[ -z "${tag}" ]]; then
-        error_exit "Could not find a release at github.com/${REPO}/releases. Pin a version with --version vX.Y.Z if a tag exists."
-    fi
+    [ -n "${tag}" ] || error_exit "Could not find a GitHub release for ${REPO}"
     VERSION="${tag}"
+    normalize_version
 }
 
-# --- Download helpers ---------------------------------------------------------
-
 build_download_url() {
-    local version_no_v="${VERSION#v}"
-    TARBALL="nidhi_${version_no_v}_${OS}_${ARCH}.tar.gz"
-    TARBALL_URL="https://github.com/${REPO}/releases/download/${VERSION}/${TARBALL}"
-    CHECKSUMS_URL="https://github.com/${REPO}/releases/download/${VERSION}/checksums.txt"
+    version_no_v="${VERSION#v}"
+    TARBALL="${BINARY}_${version_no_v}_${OS}_${ARCH}.tar.gz"
+    TARBALL_URL="${RELEASE_BASE_URL}/${VERSION}/${TARBALL}"
+    CHECKSUMS_URL="${RELEASE_BASE_URL}/${VERSION}/checksums.txt"
 }
 
 download_file() {
-    local url="$1" dest="$2"
-    if [[ "${DOWNLOADER}" == "curl" ]]; then
-        curl -sSfL -o "${dest}" "${url}" 2>/dev/null
+    url="$1"
+    dest="$2"
+    if [ "${DOWNLOADER}" = "curl" ]; then
+        curl -sSfL --retry 3 --retry-delay 1 --connect-timeout 10 -o "${dest}" "${url}" 2>/dev/null
     else
-        wget -q -O "${dest}" "${url}" 2>/dev/null
+        wget -q --tries=3 --timeout=30 -O "${dest}" "${url}" 2>/dev/null
     fi
 }
 
-# --- Checksum verification ----------------------------------------------------
-
 verify_checksum() {
-    local checksums_file="$1" tarball_file="$2"
-    local expected actual
+    checksums_file="$1"
+    tarball_file="$2"
 
-    expected="$(grep "${TARBALL}" "${checksums_file}" | awk '{print $1}' || true)"
-    if [[ -z "${expected}" ]]; then
-        error_exit "Checksum not found for ${TARBALL} in checksums.txt"
-    fi
+    expected="$(awk -v file="${TARBALL}" '$2 == file { print $1; exit }' "${checksums_file}")"
+    [ -n "${expected}" ] || error_exit "Checksum not found for ${TARBALL}"
 
-    if [[ "${HASHER}" == "shasum" ]]; then
+    if [ "${HASHER}" = "shasum" ]; then
         actual="$(shasum -a 256 "${tarball_file}" | awk '{print $1}')"
     else
         actual="$(sha256sum "${tarball_file}" | awk '{print $1}')"
     fi
 
-    if [[ "${expected}" != "${actual}" ]]; then
-        error_exit "Checksum mismatch! Expected ${expected}, got ${actual}"
-    fi
+    [ "${expected}" = "${actual}" ] || error_exit "Checksum mismatch for ${TARBALL}"
 }
 
-# --- Installation -------------------------------------------------------------
-
 install_binary() {
-    local tmpdir="$1"
+    tmpdir="$1"
+    target="${INSTALL_DIR}/${BINARY}"
+    target_tmp="${INSTALL_DIR}/.${BINARY}.tmp.$$"
+
     tar -xzf "${tmpdir}/${TARBALL}" -C "${tmpdir}"
+    [ -f "${tmpdir}/${BINARY}" ] || error_exit "Archive did not contain ${BINARY}"
+
     mkdir -p "${INSTALL_DIR}"
-    install -m 755 "${tmpdir}/${BINARY}" "${INSTALL_DIR}/${BINARY}"
+
+    if command -v install >/dev/null 2>&1; then
+        install -m 755 "${tmpdir}/${BINARY}" "${target_tmp}"
+    else
+        cp "${tmpdir}/${BINARY}" "${target_tmp}"
+        chmod 755 "${target_tmp}"
+    fi
+
+    mv "${target_tmp}" "${target}"
+}
+
+verify_installed_binary() {
+    output="$("${INSTALL_DIR}/${BINARY}" --version 2>/dev/null || true)"
+    case "${output}" in
+        *"${BINARY}"*) success "Verified ${BINARY} runs: ${output}" ;;
+        *) error_exit "Installed binary did not run correctly: ${INSTALL_DIR}/${BINARY}" ;;
+    esac
 }
 
 check_path() {
@@ -254,30 +309,23 @@ check_path() {
 
     warn "${INSTALL_DIR} is not in your PATH"
 
-    local shell_name rc_file
-    shell_name="$(basename "${SHELL:-/bin/bash}")"
-    # shellcheck disable=SC2088  # tilde is intentional for display
+    shell_name="$(basename "${SHELL:-/bin/sh}")"
     case "${shell_name}" in
-        zsh)  rc_file="~/.zshrc" ;;
-        bash) rc_file="~/.bashrc" ;;
-        fish) rc_file="~/.config/fish/config.fish" ;;
-        *)    rc_file="your shell config" ;;
+        zsh) rc_file="\$HOME/.zshrc" ;;
+        bash) rc_file="\$HOME/.bashrc" ;;
+        fish) rc_file="\$HOME/.config/fish/config.fish" ;;
+        *) rc_file="your shell config" ;;
     esac
 
     info "Add this to ${rc_file}:"
-    # shellcheck disable=SC2016  # $PATH is literal display text, not expansion
-    printf '\n  %sexport PATH="%s:$PATH"%s\n\n' "${SUBTEXT}" "${INSTALL_DIR}" "${RESET}"
+    printf "\n  %sexport PATH=\"%s:\$PATH\"%s\n\n" "${SUBTEXT}" "${INSTALL_DIR}" "${RESET}"
 }
 
-# --- Cleanup ------------------------------------------------------------------
-
 cleanup() {
-    if [[ -n "${TMPDIR_CREATED:-}" ]]; then
+    if [ -n "${TMPDIR_CREATED:-}" ]; then
         rm -rf "${TMPDIR_CREATED}"
     fi
 }
-
-# --- Main ---------------------------------------------------------------------
 
 main() {
     setup_colors
@@ -290,48 +338,47 @@ main() {
     step 2 6 "Detecting platform"
     detect_platform
 
-    step 3 6 "Finding release"
-    if [[ -n "${VERSION}" ]]; then
-        success "Version: ${VERSION} (requested)"
+    step 3 6 "Resolving release"
+    if [ -n "${VERSION}" ]; then
+        success "Version: ${VERSION}"
     else
         get_latest_version
         success "Version: ${VERSION} (latest)"
     fi
 
     build_download_url
+    release_panel
 
-    local tmpdir
     tmpdir="$(mktemp -d)"
     TMPDIR_CREATED="${tmpdir}"
-    trap cleanup EXIT
+    trap cleanup EXIT HUP INT TERM
 
-    step 4 6 "Downloading ${BINARY}"
+    step 4 6 "Downloading ${TARBALL}"
     download_file "${TARBALL_URL}" "${tmpdir}/${TARBALL}" \
-        || error_exit "Download failed. Check that ${VERSION} exists at github.com/${REPO}/releases"
+        || error_exit "Download failed: ${TARBALL_URL}"
     success "Downloaded ${TARBALL}"
 
     step 5 6 "Verifying checksum"
     download_file "${CHECKSUMS_URL}" "${tmpdir}/checksums.txt" \
-        || error_exit "Failed to download checksums"
+        || error_exit "Failed to download checksums.txt"
     verify_checksum "${tmpdir}/checksums.txt" "${tmpdir}/${TARBALL}"
     success "Checksum verified (SHA-256)"
 
     step 6 6 "Installing to ${INSTALL_DIR}"
-    install_binary "${tmpdir}"
+    install_binary "${tmpdir}" \
+        || error_exit "Install failed. Try --dir \"${HOME}/.local/bin\" or a writable directory."
     success "Installed ${BINARY} ${VERSION}"
+    verify_installed_binary
 
-    # macOS: clear Gatekeeper quarantine flag.
-    if [[ "${OS}" == "darwin" ]]; then
+    if [ "${OS}" = "darwin" ] && command -v xattr >/dev/null 2>&1; then
         xattr -d com.apple.quarantine "${INSTALL_DIR}/${BINARY}" 2>/dev/null || true
         success "Cleared macOS quarantine flag"
     fi
 
-    printf '\n  %s✓%s %s%sInstallation complete!%s\n\n' "${GREEN}" "${RESET}" "${BOLD}" "${TEXT}" "${RESET}"
-
+    printf '\n  %s✓%s %s%sInstallation complete.%s\n\n' "${GREEN}" "${RESET}" "${BOLD}" "${TEXT}" "${RESET}"
     check_path
-
-    info "Run ${BOLD}nidhi${RESET}${TEXT} in any git repository to get started"
-    info "Press ${BOLD}?${RESET}${TEXT} for the keybind reference"
+    info "Run ${BINARY} in any git repository to get started"
+    info "Press ? for the keybind reference"
     info "Configuration: ~/.config/nidhi/config.toml"
     printf '\n'
 }
