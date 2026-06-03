@@ -96,24 +96,24 @@ Built with [BubbleTea v2](https://charm.land/bubbletea), [LipGloss v2](https://g
 ### One-line install (macOS / Linux)
 
 ```bash
-curl -sSfL https://raw.githubusercontent.com/indrasvat/nidhi/main/install.sh | bash
+curl -sSfL https://raw.githubusercontent.com/indrasvat/nidhi/main/install.sh | sh
 ```
 
-Detects platform, downloads the latest signed release, verifies the SHA-256 checksum, installs to `~/.local/bin`, clears the macOS Gatekeeper quarantine flag, and warns if `~/.local/bin` is not on `$PATH`. Pin a version with `--version v0.1.0` or change the install dir with `--dir /usr/local/bin` (pass through `bash -s --`):
+Detects platform, downloads the latest SemVer GitHub release, verifies the SHA-256 checksum, installs to `~/.local/bin`, clears the macOS Gatekeeper quarantine flag, verifies `nidhi --version`, and warns if `~/.local/bin` is not on `$PATH`. Pin a version with `--version v0.1.0` or change the install dir with `--dir /usr/local/bin`:
 
 ```bash
 curl -sSfL https://raw.githubusercontent.com/indrasvat/nidhi/main/install.sh \
-    | bash -s -- --version v0.1.0 --dir ~/.local/bin
+    | sh -s -- --version v0.1.0 --dir ~/.local/bin
 ```
 
 ### From Releases
 
-Pre-built binaries for `darwin/{arm64,amd64}`, `linux/{amd64,arm64}`, and `windows/amd64` are at [Releases](https://github.com/indrasvat/nidhi/releases).
+Pre-built binaries for macOS Apple Silicon (`darwin/arm64`) and Linux (`linux/amd64`, `linux/arm64`) are at [Releases](https://github.com/indrasvat/nidhi/releases).
 
 ```bash
 # Example: macOS Apple Silicon
-curl -LO https://github.com/indrasvat/nidhi/releases/latest/download/nidhi_darwin_arm64.tar.gz
-tar -xzf nidhi_darwin_arm64.tar.gz
+curl -LO https://github.com/indrasvat/nidhi/releases/download/v0.1.0/nidhi_0.1.0_darwin_arm64.tar.gz
+tar -xzf nidhi_0.1.0_darwin_arm64.tar.gz
 chmod +x nidhi
 sudo mv nidhi /usr/local/bin/
 xattr -d com.apple.quarantine /usr/local/bin/nidhi  # macOS Gatekeeper

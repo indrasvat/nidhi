@@ -20,7 +20,7 @@ GOLANGCI   := $(shell command -v golangci-lint 2>/dev/null)
 LEFTHOOK   := $(shell command -v lefthook 2>/dev/null)
 
 # ─── Targets ──────────────────────────────────────────────
-.PHONY: build test lint check ci e2e bench bench-short profile perf-test install install-tools install-hooks clean release coverage coverage-check release-check release-dry-run smoke-test release-prep help
+.PHONY: build test lint check ci e2e bench bench-short profile perf-test install install-tools install-hooks clean release coverage coverage-check release-check release-dry-run install-script-test smoke-test release-prep help
 
 ## build: Compile binary to bin/nidhi
 build:
@@ -139,12 +139,16 @@ release-check:
 release-dry-run:
 	goreleaser release --snapshot --clean
 
+## install-script-test: Test install.sh against a local fake GitHub release
+install-script-test:
+	./scripts/test-install.sh
+
 ## smoke-test: Run release smoke test
 smoke-test: build
 	./scripts/smoke-test.sh
 
-## release-prep: Full release preparation (ci + e2e + bench + coverage + release check + smoke test)
-release-prep: ci e2e bench coverage-check release-check smoke-test
+## release-prep: Full release preparation (ci + e2e + bench + coverage + release + installer + smoke test)
+release-prep: ci e2e bench coverage-check release-check install-script-test smoke-test
 	@echo ""
 	@echo "=== Release preparation complete ==="
 	@echo "All checks passed. Ready to tag and release."

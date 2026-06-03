@@ -8,7 +8,8 @@
 - [ ] `make bench` passes (performance benchmarks meet targets)
 - [ ] `make coverage-check` passes (>70% on core packages)
 - [ ] `goreleaser check` validates config
-- [ ] `goreleaser release --snapshot --clean` produces binaries for all platforms
+- [ ] `goreleaser release --snapshot --clean` produces macOS Apple Silicon and Linux binaries
+- [ ] `make install-script-test` passes against a local fake release
 - [ ] README.md is complete with screenshots
 - [ ] LICENSE file exists
 - [ ] CLAUDE.md Learnings section is up to date
@@ -57,10 +58,8 @@ After goreleaser creates the release:
 - [ ] Changelog is populated (grouped by feat/fix/perf)
 - [ ] Binaries attached:
   - [ ] `nidhi_0.1.0_darwin_arm64.tar.gz`
-  - [ ] `nidhi_0.1.0_darwin_amd64.tar.gz`
   - [ ] `nidhi_0.1.0_linux_amd64.tar.gz`
   - [ ] `nidhi_0.1.0_linux_arm64.tar.gz`
-  - [ ] `nidhi_0.1.0_windows_amd64.zip`
   - [ ] `checksums.txt`
 
 ## Post-release Smoke Test
@@ -69,12 +68,18 @@ After goreleaser creates the release:
 # Test 1: Download and run binary on a clean machine.
 TMPDIR=$(mktemp -d)
 cd "$TMPDIR"
-curl -Lo nidhi.tar.gz "https://github.com/indrasvat/nidhi/releases/download/v0.1.0/nidhi_0.1.0_$(uname -s | tr A-Z a-z)_$(uname -m).tar.gz"
+OS=$(uname -s | tr '[:upper:]' '[:lower:]')
+ARCH=$(uname -m)
+case "$ARCH" in
+  arm64|aarch64) ARCH=arm64 ;;
+  x86_64|amd64) ARCH=amd64 ;;
+esac
+curl -Lo nidhi.tar.gz "https://github.com/indrasvat/nidhi/releases/download/v0.1.0/nidhi_0.1.0_${OS}_${ARCH}.tar.gz"
 tar xzf nidhi.tar.gz
 ./nidhi --version  # Should print: nidhi 0.1.0 (commit: ..., built: ...)
 
 # Test 2: One-line installer.
-curl -sSfL https://raw.githubusercontent.com/indrasvat/nidhi/main/install.sh | bash
+curl -sSfL https://raw.githubusercontent.com/indrasvat/nidhi/main/install.sh | sh
 nidhi --version
 
 # Test 3: go install.
