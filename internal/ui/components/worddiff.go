@@ -10,6 +10,11 @@ type CharRange struct {
 	End   int
 }
 
+const (
+	maxWordDiffLineBytes = 4096
+	maxWordDiffTokens    = 256
+)
+
 // ─── Tokenizer ──────────────────────────────────────────────
 
 // token represents a word/punctuation/whitespace token with its byte offset.
@@ -276,14 +281,21 @@ func computeEmphasis(removedContent, addedContent string) (removedEmph, addedEmp
 		return nil, nil // identical after prefix strip
 	}
 
+	remOffset := len(removedContent) - len(remText)
+	addOffset := len(addedContent) - len(addText)
+
+	if len(remText) > maxWordDiffLineBytes || len(addText) > maxWordDiffLineBytes {
+		return wholeContentRange(removedContent, remOffset), wholeContentRange(addedContent, addOffset)
+	}
+
 	remTokens := tokenize(remText)
 	addTokens := tokenize(addText)
 
-	edits := myersDiff(remTokens, addTokens)
+	if len(remTokens) > maxWordDiffTokens || len(addTokens) > maxWordDiffTokens {
+		return wholeContentRange(removedContent, remOffset), wholeContentRange(addedContent, addOffset)
+	}
 
-	// The prefix offset: the diff prefix character(s) shift all byte positions.
-	remOffset := len(removedContent) - len(remText)
-	addOffset := len(addedContent) - len(addText)
+	edits := myersDiff(remTokens, addTokens)
 
 	for _, e := range edits {
 		switch e.op {
@@ -307,6 +319,13 @@ func computeEmphasis(removedContent, addedContent string) (removedEmph, addedEmp
 	addedEmph = mergeRanges(addedEmph)
 
 	return removedEmph, addedEmph
+}
+
+func wholeContentRange(content string, offset int) []CharRange {
+	if offset >= len(content) {
+		return nil
+	}
+	return []CharRange{{Start: offset, End: len(content)}}
 }
 
 // stripDiffPrefix removes the leading +/- character from a diff line.

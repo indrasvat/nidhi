@@ -1,6 +1,7 @@
 package components
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -164,6 +165,26 @@ func TestComputeEmphasis_IdenticalContent(t *testing.T) {
 	}
 }
 
+func TestComputeEmphasis_LongLineFallback(t *testing.T) {
+	removed := "-" + strings.Repeat("a", maxWordDiffLineBytes) + "old"
+	added := "+" + strings.Repeat("a", maxWordDiffLineBytes) + "new"
+
+	remEmph, addEmph := computeEmphasis(removed, added)
+
+	assertRanges(t, remEmph, []CharRange{{Start: 1, End: len(removed)}})
+	assertRanges(t, addEmph, []CharRange{{Start: 1, End: len(added)}})
+}
+
+func TestComputeEmphasis_TokenLimitFallback(t *testing.T) {
+	removed := "-" + strings.Repeat("a,", maxWordDiffTokens) + "old"
+	added := "+" + strings.Repeat("a,", maxWordDiffTokens) + "new"
+
+	remEmph, addEmph := computeEmphasis(removed, added)
+
+	assertRanges(t, remEmph, []CharRange{{Start: 1, End: len(removed)}})
+	assertRanges(t, addEmph, []CharRange{{Start: 1, End: len(added)}})
+}
+
 func TestAnnotateEmphasis_Integration(t *testing.T) {
 	lines := parseDiff("diff --git a/f b/f\n--- a/f\n+++ b/f\n@@ -1,2 +1,2 @@\n context\n-old value\n+new value")
 	annotateEmphasis(lines)
@@ -240,6 +261,18 @@ func assertStrSlice(t *testing.T, got, want []string) {
 	for i := range got {
 		if got[i] != want[i] {
 			t.Errorf("index %d: got %q, want %q", i, got[i], want[i])
+		}
+	}
+}
+
+func assertRanges(t *testing.T, got, want []CharRange) {
+	t.Helper()
+	if len(got) != len(want) {
+		t.Fatalf("range length mismatch: got %d, want %d\ngot:  %v\nwant: %v", len(got), len(want), got, want)
+	}
+	for i := range got {
+		if got[i] != want[i] {
+			t.Errorf("range %d: got %+v, want %+v", i, got[i], want[i])
 		}
 	}
 }

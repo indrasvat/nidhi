@@ -406,6 +406,12 @@ Phase 5: Polish (v1.0.0) — "Release"
   - Search now handles text-form special keys from terminal input (`escape`, `tab`) and arrow-key result navigation
   - CI polish: lint workflow now installs golangci-lint v2 with the Go 1.26 toolchain; race-mode cursor render perf guard widened to avoid GitHub runner scheduling flakes while benchmark coverage still enforces the <1ms non-race target
 
+### 2026-06-03
+- Addressed PR #13 review feedback on word-level diff performance
+  - Added byte and token cutoffs before the Myers token diff path to bound memory/time for minified JSON, lockfiles, bundled JS, and other very long changed lines
+  - Large changed line pairs now fall back to a single full-content emphasis range after the diff prefix, preserving visual change highlighting without quadratic trace growth
+  - Added focused tests for long-line and high-token fallback behavior
+
 ## Task List
 
 | # | Task | Phase | Status | Depends On |
