@@ -10,7 +10,6 @@
 <p align="center">
   <a href="https://github.com/indrasvat/nidhi/actions/workflows/ci.yml"><img src="https://github.com/indrasvat/nidhi/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="https://codecov.io/gh/indrasvat/nidhi"><img src="https://codecov.io/gh/indrasvat/nidhi/branch/main/graph/badge.svg" alt="Coverage"></a>
-  <a href="go.mod"><img src="https://img.shields.io/github/go-mod-go-version/indrasvat/nidhi" alt="Go Version"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
   <a href="https://github.com/indrasvat/nidhi/releases"><img src="https://img.shields.io/github/v/release/indrasvat/nidhi" alt="Release"></a>
 </p>
