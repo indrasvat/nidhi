@@ -99,15 +99,15 @@ shorten() {
 }
 
 release_panel() {
-    release_value="$(shorten "${VERSION}" 42)"
-    artifact_value="$(shorten "${TARBALL}" 42)"
-    install_value="$(shorten "${INSTALL_DIR}" 42)"
+    release_value="$(shorten "${VERSION}" 45)"
+    artifact_value="$(shorten "${TARBALL}" 45)"
+    install_value="$(shorten "${INSTALL_DIR}" 45)"
 
     printf '\n'
     printf '%s╭────────────────────────────────────────────────────────╮%s\n' "${DIM}" "${RESET}"
-    printf '%s│%s %srelease%s   %-42s %s│%s\n' "${DIM}" "${RESET}" "${GOLD}" "${RESET}" "${release_value}" "${DIM}" "${RESET}"
-    printf '%s│%s %sartifact%s  %-42s %s│%s\n' "${DIM}" "${RESET}" "${PURPLE}" "${RESET}" "${artifact_value}" "${DIM}" "${RESET}"
-    printf '%s│%s %sinstall%s   %-42s %s│%s\n' "${DIM}" "${RESET}" "${AQUA}" "${RESET}" "${install_value}" "${DIM}" "${RESET}"
+    printf '%s│%s %srelease %s  %-45s%s│%s\n' "${DIM}" "${RESET}" "${GOLD}" "${RESET}" "${release_value}" "${DIM}" "${RESET}"
+    printf '%s│%s %sartifact%s  %-45s%s│%s\n' "${DIM}" "${RESET}" "${PURPLE}" "${RESET}" "${artifact_value}" "${DIM}" "${RESET}"
+    printf '%s│%s %sinstall %s  %-45s%s│%s\n' "${DIM}" "${RESET}" "${AQUA}" "${RESET}" "${install_value}" "${DIM}" "${RESET}"
     printf '%s╰────────────────────────────────────────────────────────╯%s\n' "${DIM}" "${RESET}"
 }
 
@@ -309,16 +309,46 @@ check_path() {
 
     warn "${INSTALL_DIR} is not in your PATH"
 
-    shell_name="$(basename "${SHELL:-/bin/sh}")"
+    shell_name="$(basename "${SHELL:-unknown}")"
     case "${shell_name}" in
-        zsh) rc_file="\$HOME/.zshrc" ;;
-        bash) rc_file="\$HOME/.bashrc" ;;
-        fish) rc_file="\$HOME/.config/fish/config.fish" ;;
-        *) rc_file="your shell config" ;;
+        zsh)
+            rc_file="\$HOME/.zshrc"
+            shell_label="zsh"
+            ;;
+        bash)
+            rc_file="\$HOME/.bashrc"
+            shell_label="bash"
+            ;;
+        fish)
+            rc_file="\$HOME/.config/fish/config.fish"
+            shell_label="fish"
+            ;;
+        unknown)
+            rc_file="your shell startup file"
+            shell_label="unknown"
+            shell_note="Could not detect your interactive shell from SHELL."
+            ;;
+        *)
+            rc_file="your shell startup file"
+            shell_label="${shell_name}"
+            shell_note="No built-in startup-file recommendation for ${shell_name}."
+            ;;
     esac
 
+    info "Detected shell: ${shell_label}"
+    if [ -n "${shell_note:-}" ]; then
+        info "${shell_note}"
+    fi
     info "Add this to ${rc_file}:"
     printf "\n  %sexport PATH=\"%s:\$PATH\"%s\n\n" "${SUBTEXT}" "${INSTALL_DIR}" "${RESET}"
+
+    info "Common startup files:"
+    printf '  %sbash: %s  zsh: %s  fish: %s%s\n\n' \
+        "${SUBTEXT}" \
+        "\$HOME/.bashrc" \
+        "\$HOME/.zshrc" \
+        "\$HOME/.config/fish/config.fish" \
+        "${RESET}"
 }
 
 cleanup() {
