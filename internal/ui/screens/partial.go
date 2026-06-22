@@ -284,7 +284,10 @@ func (s *PartialScreen) landable(r pRow) bool {
 			return false
 		}
 		f := s.patch.Files[r.file]
-		if f.IsBinary {
+		// New/deleted/renamed/binary files are all-or-nothing: a subset of
+		// their lines builds a patch git rejects, so line rows are never
+		// landable — the file-level checkbox handles them.
+		if f.WholeFileOnly() {
 			return false
 		}
 		return f.Hunks[r.hunk].Lines[r.line].Kind != git.LineContext
@@ -378,7 +381,13 @@ func (s *PartialScreen) toggleFocused() {
 		h := &s.patch.Files[r.file].Hunks[r.hunk]
 		h.SetSelected(h.SelectionState() != git.SelAll)
 	case rowLine:
-		ln := &s.patch.Files[r.file].Hunks[r.hunk].Lines[r.line]
+		f := &s.patch.Files[r.file]
+		if f.WholeFileOnly() {
+			// All-or-nothing file: toggle the whole file, never a line.
+			f.SetSelected(f.SelectionState() != git.SelAll)
+			return
+		}
+		ln := &f.Hunks[r.hunk].Lines[r.line]
 		if ln.Kind != git.LineContext {
 			ln.Selected = !ln.Selected
 		}

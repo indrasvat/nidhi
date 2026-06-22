@@ -34,6 +34,46 @@ func newTestPartial(t *testing.T) *PartialScreen {
 	return s
 }
 
+func TestPartial_LineModeSkipsWholeFileOnly(t *testing.T) {
+	s := NewPartialScreen(theme.NewAgni())
+	diff := strings.Join([]string{
+		"diff --git a/new.txt b/new.txt",
+		"new file mode 100644",
+		"index 0000000..1111111",
+		"--- /dev/null",
+		"+++ b/new.txt",
+		"@@ -0,0 +1,2 @@",
+		"+alpha",
+		"+beta",
+		"",
+	}, "\n")
+	ps, err := git.ParsePatch(diff)
+	if err != nil {
+		t.Fatalf("ParsePatch: %v", err)
+	}
+	s.SetPatchForTest(ps)
+	st := plugin.AppState{Mode: plugin.ModePartial}
+
+	s.Update(key("v"), st) // line-mode
+	if !s.LineModeForTest() {
+		t.Fatal("v should enable line-mode")
+	}
+	if got := s.CursorRowForTest(); got != "file" {
+		t.Fatalf("cursor should be on the file row, got %q", got)
+	}
+	// Even in line-mode, the cursor must not descend into a whole-file-only
+	// file's individual lines.
+	s.Update(key("j"), st)
+	if got := s.CursorRowForTest(); got != "file" {
+		t.Errorf("line-mode must not land on whole-file-only lines, got %q", got)
+	}
+	// Space on it selects the whole file (all-or-nothing).
+	s.Update(key(" "), st)
+	if got := s.PatchForTest().SelectedStats().Added; got != 2 {
+		t.Errorf("toggling a whole-file-only file should select all its lines, got +%d", got)
+	}
+}
+
 func key(text string) tea.KeyPressMsg {
 	return tea.KeyPressMsg{Text: text}
 }

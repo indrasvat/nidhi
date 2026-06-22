@@ -91,6 +91,41 @@ func TestCreatePartialStash_SelectsOnlyChosenLine(t *testing.T) {
 	}
 }
 
+func TestCreatePartialStash_NoOrphanStashInvariant(t *testing.T) {
+	// Selecting only part of an adjacent modification can make
+	// `git stash push --staged` fail AFTER creating the stash. Whatever the
+	// outcome, the operation must never leave an orphan stash: success ⇒ 1
+	// stash, failure ⇒ 0 (Codex P1).
+	dir, runner := setupPartialRepo(t, "x\n", "A\nB\n")
+	ctx := context.Background()
+
+	ps, err := git.ParsePatch(diffHead(t, dir))
+	if err != nil {
+		t.Fatalf("ParsePatch: %v", err)
+	}
+	for fi := range ps.Files {
+		for hi := range ps.Files[fi].Hunks {
+			for li := range ps.Files[fi].Hunks[hi].Lines {
+				ln := &ps.Files[fi].Hunks[hi].Lines[li]
+				if ln.Kind == git.LineAdded && ln.Text == "A" {
+					ln.Selected = true
+				}
+			}
+		}
+	}
+	patch := ps.BuildSelectedPatch()
+	_, opErr := git.CreatePartialStash(ctx, runner, patch, "subset")
+
+	n := countStashes(t, dir)
+	if opErr == nil {
+		if n != 1 {
+			t.Errorf("success should yield exactly 1 stash, got %d", n)
+		}
+	} else if n != 0 {
+		t.Errorf("failure must leave no orphan stash, got %d", n)
+	}
+}
+
 func TestCreatePartialStash_EmptyPatchErrors(t *testing.T) {
 	dir, runner := setupPartialRepo(t, "a\n", "a\nb\n")
 	_ = dir

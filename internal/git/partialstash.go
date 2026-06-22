@@ -99,8 +99,18 @@ func CreatePartialStash(ctx context.Context, runner GitRunner, patch, message st
 	}
 
 	// 4. Stash only the staged subset.
+	// `git stash push --staged` can write the stash object and THEN fail while
+	// removing the selection from the worktree (e.g. "Cannot remove worktree
+	// changes" when an adjacent unstaged change overlaps). Record the top of
+	// the stash stack first so the failure path can drop any orphan it left.
+	preStash := topStashRef(ctx, runner)
 	out, code, serr := runner.RunExitCode(ctx, "stash", "push", "--staged", "-m", message)
 	if serr != nil || code != 0 {
+		if topStashRef(ctx, runner) != preStash {
+			// A stash was created before the failure — drop it so a failed
+			// attempt never leaves an orphan entry behind.
+			_, _, _ = runner.RunExitCode(ctx, "stash", "drop", "stash@{0}")
+		}
 		rollback()
 		return PartialResult{}, fmt.Errorf("git stash push --staged failed (exit %d): %s", code, strings.TrimSpace(out))
 	}
@@ -127,7 +137,13 @@ func CreatePartialStash(ctx context.Context, runner GitRunner, patch, message st
 }
 
 func partialStashSHA(ctx context.Context, runner GitRunner) string {
-	out, code, err := runner.RunExitCode(ctx, "rev-parse", "stash@{0}")
+	return topStashRef(ctx, runner)
+}
+
+// topStashRef returns the SHA at the top of the stash stack (refs/stash),
+// or "" when there are no stashes.
+func topStashRef(ctx context.Context, runner GitRunner) string {
+	out, code, err := runner.RunExitCode(ctx, "rev-parse", "--verify", "--quiet", "refs/stash")
 	if err != nil || code != 0 {
 		return ""
 	}
@@ -221,7 +237,10 @@ func HasIncompletePartialStash() bool {
 // RecoverPartialStash restores the index from an interrupted partial stash and
 // clears the journal. Best-effort: returns nil if there is nothing to recover.
 func RecoverPartialStash(ctx context.Context, runner GitRunner) error {
-	path := DefaultPartialJournalPath()
+	return recoverPartialStashAt(ctx, runner, DefaultPartialJournalPath())
+}
+
+func recoverPartialStashAt(ctx context.Context, runner GitRunner, path string) error {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil
@@ -234,6 +253,10 @@ func RecoverPartialStash(ctx context.Context, runner GitRunner) error {
 		_ = os.Remove(path)
 		return nil
 	}
+	// An interrupt may have left the partial selection staged. Reset the index
+	// to HEAD first (mirroring the normal rollback path) so recovery never
+	// leaves the partial selection staged, then replay the original snapshot.
+	_, _, _ = runner.RunExitCode(ctx, "reset", "-q")
 	if strings.TrimSpace(j.RestorePatch) != "" {
 		restoreFile, cleanup, werr := writeTempPatch("nidhi-recover-*.patch", j.RestorePatch+"\n")
 		if werr == nil {
