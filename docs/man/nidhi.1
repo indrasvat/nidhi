@@ -79,6 +79,9 @@ Drop selected stash (with undo toast).
 .B n
 Create new stash.
 .TP
+.B P
+Partial stash: open the visual hunk/line picker (requires Git >= 2.35).
+.TP
 .B r
 Rename selected stash.
 .TP
@@ -116,6 +119,26 @@ Toggle back to LIST mode.
 .TP
 .B Tab
 Switch focus between file tree and diff viewport.
+.SS PARTIAL Mode
+Interactive partial stash: pick exactly which changes to stash.
+.TP
+.B j/k
+Move the cursor (file/hunk in hunk-mode, lines in line-mode).
+.TP
+.B Space
+Toggle the focused file, hunk, or line.
+.TP
+.B v
+Switch between hunk and line granularity.
+.TP
+.B a/A
+Toggle the file under the cursor / toggle everything.
+.TP
+.B Enter
+Name and create the stash from the selected changes.
+.TP
+.B Esc
+Cancel without modifying the working tree.
 .SH CONFIGURATION
 nidhi reads configuration from (in priority order):
 .IP 1. 4

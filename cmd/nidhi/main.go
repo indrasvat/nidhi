@@ -281,6 +281,15 @@ func run(flags config.CLIFlags) error {
 		}
 	}
 
+	// Recover from any interrupted partial-stash operations (restore index).
+	if git.HasIncompletePartialStash() {
+		if recErr := git.RecoverPartialStash(ctx, runner); recErr != nil {
+			logger.Error("failed to recover from interrupted partial stash", "error", recErr)
+		} else {
+			logger.Info("recovered index from interrupted partial stash")
+		}
+	}
+
 	// Recover from any interrupted reorder operations.
 	if reorder.HasIncompleteOperation() {
 		recovered, recErr := reorder.RecoverFromJournal(ctx, reorder.DefaultJournalPath(), runner)
@@ -306,6 +315,8 @@ func run(flags config.CLIFlags) error {
 	previewScreen := screens.NewPreviewScreen(listScreen, &cacheAdapter{inner: gitCache}, th)
 	detailScreen := screens.NewDetailScreen(th)
 	helpOverlay := screens.NewHelpOverlay(th)
+	partialScreen := screens.NewPartialScreen(th)
+	partialScreen.Init(runner, &cacheAdapter{inner: gitCache})
 	toastModel := components.NewToastModel(th)
 
 	repoName := filepath.Base(workDir)
@@ -321,6 +332,7 @@ func run(flags config.CLIFlags) error {
 		preview:    previewScreen,
 		detail:     detailScreen,
 		newStash:   newStashScreen,
+		partial:    partialScreen,
 		help:       helpOverlay,
 		toast:      &toastModel,
 		statusBar:  components.NewStatusBar(th),
@@ -450,6 +462,7 @@ type uiRenderer struct {
 	preview  *screens.PreviewScreen
 	detail   *screens.DetailScreen
 	newStash *screens.NewStashScreen
+	partial  *screens.PartialScreen
 	help     *screens.HelpOverlay
 	toast    *components.ToastModel
 
@@ -509,6 +522,8 @@ func (u *uiRenderer) RenderContent(state core.AppState) string {
 		content = u.detail.View(state, dims.ContentWidth, dims.ContentHeight)
 	case core.ModeNewStash:
 		content = u.newStash.View(state, dims.ContentWidth, dims.ContentHeight)
+	case core.ModePartial:
+		content = u.partial.View(state, dims.ContentWidth, dims.ContentHeight)
 	case core.ModeHelp:
 		// Help renders over the list view background.
 		bg := u.list.View(state, dims.ContentWidth, dims.ContentHeight)
@@ -561,6 +576,25 @@ func (u *uiRenderer) HandleMessage(msg tea.Msg, state core.AppState) (core.AppSt
 		return state, u.runDrop(msg.Stash)
 	case screens.StashBranchMsg:
 		return state, u.runBranch(msg.Stash)
+	case screens.PatchModeMsg:
+		// New Stash "Patch mode" hands off to the native PARTIAL picker
+		// instead of shelling out to git's interactive `stash push -p`.
+		u.newStash.Reset()
+		state.Mode = core.ModePartial
+		return state, u.partial.EnsureLoaded(state)
+	case screens.PartialDiffLoadedMsg:
+		return u.partial.Update(msg, state)
+	case screens.PartialStashCreatedMsg:
+		newState, cmd := u.partial.Update(msg, state)
+		if msg.Note != "" {
+			cmds = append(cmds, func() tea.Msg { return core.InfoToastMsg{Text: msg.Note} })
+		}
+		if cmd != nil {
+			cmds = append(cmds, cmd)
+		}
+		return newState, tea.Batch(cmds...)
+	case screens.PartialStashErrorMsg:
+		return u.partial.Update(msg, state)
 	case screens.StashRenameMsg:
 		// Rename is handled inline by the rename plugin's HandleKey; the LIST
 		// screen still emits this message for symmetry with apply/pop/drop, so
@@ -625,6 +659,12 @@ func (u *uiRenderer) HandleMessage(msg tea.Msg, state core.AppState) (core.AppSt
 				cmds = append(cmds, diffCmd)
 			}
 		}
+		// If entering partial-stash mode, load the working-tree diff.
+		if newState.Mode == core.ModePartial {
+			if loadCmd := u.partial.EnsureLoaded(newState); loadCmd != nil {
+				cmds = append(cmds, loadCmd)
+			}
+		}
 		return newState, tea.Batch(cmds...)
 	case core.ModePreview:
 		newState, cmd := u.preview.Update(msg, state)
@@ -640,6 +680,12 @@ func (u *uiRenderer) HandleMessage(msg tea.Msg, state core.AppState) (core.AppSt
 		return newState, tea.Batch(cmds...)
 	case core.ModeNewStash:
 		newState, cmd := u.newStash.Update(msg, state)
+		if cmd != nil {
+			cmds = append(cmds, cmd)
+		}
+		return newState, tea.Batch(cmds...)
+	case core.ModePartial:
+		newState, cmd := u.partial.Update(msg, state)
 		if cmd != nil {
 			cmds = append(cmds, cmd)
 		}

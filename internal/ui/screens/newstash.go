@@ -460,6 +460,10 @@ func LoadFileCounts(runner plugin.GitRunner) tea.Cmd {
 	}
 }
 
+// Reset clears the screen state for reuse (e.g. when handing off to the
+// PARTIAL picker for patch mode).
+func (s *NewStashScreen) Reset() { s.reset() }
+
 // reset clears the screen state for reuse.
 func (s *NewStashScreen) reset() {
 	s.message = ""

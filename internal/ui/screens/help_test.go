@@ -18,6 +18,7 @@ func TestHelpOverlayContainsAllCategories(t *testing.T) {
 		"Actions",
 		"Search & Filter",
 		"Export & Import",
+		"Partial Stash",
 	}
 
 	if len(categories) != len(expected) {
