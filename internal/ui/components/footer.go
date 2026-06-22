@@ -42,6 +42,7 @@ func HintsForMode(mode plugin.Mode) []KeyHint {
 			{"\u23CE", "detail"},
 			{"\u21E5", "preview"},
 			{"n", "new"},
+			{"P", "partial"},
 			{"a", "apply"},
 			{"p", "pop"},
 			{"d", "drop"},
@@ -113,6 +114,17 @@ func HintsForMode(mode plugin.Mode) []KeyHint {
 			{"a", "apply anyway"},
 			{"p", "pop anyway"},
 			{"b", "branch first"},
+			{"?", "help"},
+			{"esc", "cancel"},
+		}
+	case plugin.ModePartial:
+		return []KeyHint{
+			{"j/k", "nav"},
+			{"space", "toggle"},
+			{"v", "line-mode"},
+			{"a", "file"},
+			{"A", "all"},
+			{"⏎", "stash"},
 			{"?", "help"},
 			{"esc", "cancel"},
 		}
@@ -245,6 +257,8 @@ func badgeColorsForMode(mode plugin.Mode, th theme.Theme) (fg, bg color.Color) {
 		return th.SemanticGreen(), lipgloss.Color("#101C12") // green on green-bg
 	case plugin.ModeConflict:
 		return th.SemanticYellow(), lipgloss.Color("#1C1810") // yellow on yellow-bg
+	case plugin.ModePartial:
+		return th.SemanticPurple(), lipgloss.Color("#161020") // purple on purple-bg (PICK)
 	case plugin.ModeHelp:
 		return th.FgSecondary(), lipgloss.Color("#121418") // dimmed on dim-bg
 	default:

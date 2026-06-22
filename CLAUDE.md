@@ -127,6 +127,10 @@ UI Layer — BubbleTea v2 (screen router, layout engine, overlay manager, compon
 - `git stash push` returns exit 0 even when there are no local changes. Detect via output containing "No local changes to save".
 - `git stash store -m <msg> <sha>` re-stores a previously dropped stash. Used for undo recovery and reorder.
 - Reorder algorithm: drop ALL stashes (highest first), re-store in new order (last to first, since store prepends). After removing element at sourceIndex, insert at targetIndex directly — NO index adjustment needed.
+- **Partial stash (hunk/line)**: build a subset patch from `git diff HEAD`, `git apply --cached` it, then `git stash push --staged` (Git ≥2.35). `--staged` removes the selection from BOTH index and worktree, leaving unselected changes in place. Snapshot pre-existing staged state with `git diff --cached --binary` and re-apply it after; always gate with `git apply --cached --check` and roll back (`git reset -q` + re-apply snapshot) on any failure — never half-modify the tree.
+- **Patch surgery** (internal/git/patch.go `BuildSelectedPatch`): selected `+` kept, unselected `+` dropped, selected `-` kept, unselected `-` → context ` `, context kept. Recompute counts (oldCount=context+removed-emitted, newCount=context+added-emitted), newStart=oldStart+running delta, skip pure-context hunks, emit git-canonical headers (omit `,1`).
+- The GitRunner abstraction has no stdin / per-call-env — pass patches to `git apply` via temp files (os.CreateTemp), not stdin.
+- `PatchModeMsg` from the New Stash screen routes to `ModePartial` in cmd/nidhi/main.go (it was previously emitted but never handled — a dead checkbox).
 - `strings.SplitSeq` (Go 1.24+ iterator) is preferred by golangci-lint stringsseq rule over `strings.Split` in range loops.
 - `fmt.Appendf(nil, ...)` is preferred by golangci-lint fmtappendf rule over `[]byte(fmt.Sprintf(...))`.
 

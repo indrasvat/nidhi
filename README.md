@@ -62,7 +62,8 @@ Built with [BubbleTea v2](https://charm.land/bubbletea), [LipGloss v2](https://g
 - **Undo drop** — `z` reverses the last drop. 50-entry LIFO ring buffer, 30-second toast, cross-session recovery via `git fsck --unreachable` for older drops.
 - **Inline rename** — `r` renames a stash by drop+`git stash store`. Multi-step reorder for non-top stashes uses a crash-safe JSON journal under `~/.local/state/nidhi/`.
 - **Reorder** — `Shift+J`/`Shift+K` moves the selected stash; transactional drop-all + re-store with journal-backed crash recovery.
-- **New stash** — `n` opens a message-first form with scope toggles (staged/unstaged/untracked, live file counts), keep-index, and patch mode (`Ctrl+P`, hands off to interactive `git stash push -p`).
+- **New stash** — `n` opens a message-first form with scope toggles (staged/unstaged/untracked, live file counts), keep-index, and patch mode (opens the native PARTIAL picker — see below).
+- **Partial stash** — `P` opens a visual hunk/line picker: scroll a live diff, toggle individual hunks (or drill into lines with `v`), watch a live `+X/−Y` tally, then stash exactly what you chose while the rest of the working tree stays put. No interactive `git stash push -p` prompt. Requires Git ≥2.35.
 - **Branch from stash** — `b` to materialize a stash as a fresh branch via `git stash branch`.
 - **Drop-all** — `D` clears every stash with double-confirmation; SHAs are captured for bulk undo.
 
@@ -228,6 +229,7 @@ nidhi [flags]
 | `d` | Drop stash (undo with `z`) |
 | `D` | Drop ALL stashes (double-confirm) |
 | `n` | New stash |
+| `P` | Partial stash — visual hunk/line picker (Git ≥2.35) |
 | `r` | Rename stash (inline) |
 | `b` | Create branch from stash |
 | `m` | Pin / unpin (session-only marker) |
@@ -238,6 +240,22 @@ nidhi [flags]
 | `/` | Open search |
 | `e` | Open export |
 | `i` | Open import |
+
+### PARTIAL mode (partial stash)
+
+A visual hunk/line picker — stash exactly the changes you choose, without git's
+interactive `y/n/q/a/d/s/e` prompt. Selected changes render in full color,
+unselected ones dim, so the screen previews what the stash will contain.
+
+| Key | Action |
+|-----|--------|
+| `j` / `k` (or arrows) | Move cursor (file/hunk in hunk-mode, lines in line-mode) |
+| `space` | Toggle the focused file / hunk / line |
+| `v` | Switch hunk ↔ line granularity |
+| `a` | Toggle the whole file under the cursor |
+| `A` | Toggle everything |
+| `Enter` | Name & create the stash |
+| `Esc` | Cancel (no changes made) |
 
 ### PREVIEW mode
 

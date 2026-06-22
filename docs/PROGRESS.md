@@ -419,6 +419,31 @@ Phase 5: Polish (v1.0.0) — "Release"
   - Added `scripts/test-install.sh` and `make install-script-test` to exercise the installer against a local fake GitHub release
   - Verified installer visuals with shux screenshots under `.shux/out/`
 
+### 2026-06-22
+- Implemented Proposal 001: Interactive Partial Stash (visual hunk & line picker)
+  - internal/git/patch.go: diff model (File/Hunk/Line) + ParsePatch + "patch surgery"
+    BuildSelectedPatch that synthesizes a valid unified diff of only selected
+    changes (unselected adds dropped, unselected removes → context, hunk headers
+    recomputed with running delta). Pure, no git — fully unit-tested (TDD red→green).
+  - internal/git/partialstash.go: CreatePartialStash — transactional, journaled,
+    no interactive git. Snapshot index (diff --cached --binary) → reset → apply
+    --cached --check (gate) → apply --cached selection → stash push --staged →
+    restore staged. Refuses on bad patch, leaving the repo pristine.
+  - internal/ui/screens/partial.go: PARTIAL screen — tri-state checkbox diff
+    (▣/◪/▢), hunk vs line granularity (v), live +X/−Y tally, message prompt.
+    Reuses Agni theme; selected lines full-color, unselected dimmed.
+  - Wiring: plugin.ModePartial + core alias + transitions; LIST `P` key (Git ≥2.35
+    gated); footer hints + purple PICK badge; help overlay "Partial Stash" category;
+    New Stash "Patch mode" now routes into PARTIAL (PatchModeMsg was previously a
+    dead, unhandled message); crash recovery wired in main.go.
+  - Tests: 12 patch-surgery unit tests, 4 CreatePartialStash integration tests
+    (real temp repos), 11 PartialScreen unit tests. Full suite green.
+  - shux: installed shux v0.35.0 + skill; .shux/scripts/setup-partial-demo.sh;
+    drove the real TUI end-to-end (select db.go hunk → stash contains exactly that;
+    auth.go changes retained). Independent TUI-testing subagent judged hard gates.
+  - TDD note: BuildSelectedPatch emits git-canonical hunk headers (omits `,1`
+    counts), matching `git diff` output exactly for round-trips.
+
 ## Task List
 
 | # | Task | Phase | Status | Depends On |
@@ -461,3 +486,4 @@ Phase 5: Polish (v1.0.0) — "Release"
 | 035 | Version display & startup banner | Feature | DONE | 006 |
 | 036 | Overhaul iTerm2 E2E tests | Testing | DONE | 034, 035 |
 | 038 | Session pin markers | Feature | DONE | 010, 011 |
+| 039 | Interactive partial stash (hunk/line picker) | Feature | DONE | 013, 009 |

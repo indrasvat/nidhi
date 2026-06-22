@@ -208,6 +208,16 @@ func (l *ListScreen) handleKey(msg tea.KeyPressMsg, state core.AppState) (core.A
 		return state, stashCmd(StashDropMsg{Stash: state.Stashes[l.cursor]})
 	case msg.Text == "n":
 		state.Mode = core.ModeNewStash
+	case msg.Text == "P":
+		// Partial stash (visual hunk/line picker) requires Git ≥ 2.35
+		// for `git stash push --staged`.
+		if state.GitVersion.AtLeast(2, 35) {
+			state.Mode = core.ModePartial
+		} else {
+			return state, func() tea.Msg {
+				return core.InfoToastMsg{Text: "Partial stash needs Git ≥ 2.35"}
+			}
+		}
 	case msg.Text == "r" && n > 0:
 		return state, stashCmd(StashRenameMsg{Stash: state.Stashes[l.cursor]})
 	case msg.Text == "b" && n > 0:

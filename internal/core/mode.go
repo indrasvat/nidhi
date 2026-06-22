@@ -19,6 +19,7 @@ const (
 	ModeImport   = plugin.ModeImport
 	ModeConflict = plugin.ModeConflict
 	ModeHelp     = plugin.ModeHelp
+	ModePartial  = plugin.ModePartial
 )
 
 const maxModeStackDepth = 20
@@ -88,7 +89,7 @@ func isValidTransition(from, to Mode) bool {
 	case ModeList:
 		return to == ModePreview || to == ModeDetail || to == ModeSearch ||
 			to == ModeNewStash || to == ModeExport || to == ModeImport ||
-			to == ModeConflict
+			to == ModeConflict || to == ModePartial
 	case ModePreview:
 		return to == ModeList || to == ModeDetail || to == ModeSearch
 	case ModeDetail:
@@ -96,6 +97,8 @@ func isValidTransition(from, to Mode) bool {
 	case ModeSearch:
 		return to == ModeList || to == ModePreview
 	case ModeNewStash:
+		return to == ModeList || to == ModePartial
+	case ModePartial:
 		return to == ModeList
 	case ModeExport:
 		return to == ModeList

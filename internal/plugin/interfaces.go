@@ -20,13 +20,14 @@ const (
 	ModeImport
 	ModeConflict
 	ModeHelp
+	ModePartial
 )
 
 // String returns the human-readable mode name.
 func (m Mode) String() string {
 	names := [...]string{
 		"LIST", "PREVIEW", "DETAIL", "SEARCH",
-		"NEW", "EXPORT", "IMPORT", "CONFLICT", "HELP",
+		"NEW", "EXPORT", "IMPORT", "CONFLICT", "HELP", "PARTIAL",
 	}
 	if int(m) < len(names) {
 		return names[m]
